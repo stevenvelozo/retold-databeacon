@@ -1,0 +1,45 @@
+# Docker Compose for retold-databeacon integration testing.
+# Provides MySQL and PostgreSQL instances pre-loaded with the Chinook sample database.
+#
+# This file lives in test/ and is invoked via:
+#   npm run docker-test-up               # Start both databases
+#   npm run test-browser                 # Run Puppeteer integration tests
+#   npm run docker-test-down             # Cleanup
+#
+# Volume paths are relative to this file (test/ directory).
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: databeacon-test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: testpassword
+      MYSQL_DATABASE: chinook
+    ports:
+      - "23389:3306"
+    volumes:
+      - ./docker-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptestpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  postgres:
+    image: postgres:16
+    container_name: databeacon-test-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpassword
+      POSTGRES_DB: chinook
+    ports:
+      - "25389:5432"
+    volumes:
+      - ./docker-init-pg:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s

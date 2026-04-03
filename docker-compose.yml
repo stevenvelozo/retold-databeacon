@@ -1,27 +1,31 @@
-version: '3.8'
-
-# Docker Compose for retold-databeacon integration testing.
-# Provides a MySQL instance pre-loaded with the Chinook sample database.
+# Docker Compose for running retold-databeacon as a service.
 #
 # Usage:
-#   docker compose up -d mysql
-#   npm run test-browser
-#   docker compose down
+#   docker compose up -d              # Start DataBeacon
+#   docker compose up -d --build      # Rebuild and start
+#   docker compose logs -f            # Tail logs
+#   docker compose down               # Stop
+#
+# Data persists in the 'beacon-data' volume across restarts.
+# Access the web UI at http://localhost:8389/
 
 services:
-  mysql:
-    image: mysql:8
-    container_name: databeacon-test-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: testpassword
-      MYSQL_DATABASE: chinook
+  databeacon:
+    build: .
+    container_name: retold-databeacon
+    restart: unless-stopped
     ports:
-      - "23389:3306"
+      - "${BEACON_PORT:-8389}:8389"
     volumes:
-      - ./test/docker-init:/docker-entrypoint-initdb.d
+      - beacon-data:/app/data
+    environment:
+      - PORT=8389
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptestpassword"]
-      interval: 5s
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8389/beacon/ultravisor/status',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"]
+      interval: 30s
       timeout: 5s
-      retries: 20
-      start_period: 15s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  beacon-data:

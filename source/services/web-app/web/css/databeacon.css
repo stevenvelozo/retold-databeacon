@@ -370,3 +370,38 @@ a:hover {
 	color: var(--accent-primary-hover);
 	text-decoration: underline;
 }
+
+/* Connection banner in introspection view */
+.connection-banner {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 12px;
+	padding: 10px 14px;
+	background: var(--bg-card);
+	border-radius: 6px;
+	border: 1px solid var(--border-color);
+}
+
+.connection-banner-name {
+	font-weight: 600;
+	font-size: 14px;
+	color: var(--text-primary);
+}
+
+.connection-banner-type {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.connection-banner-desc {
+	font-size: 12px;
+	color: var(--text-secondary);
+	margin-left: auto;
+}
+
+.section-subline {
+	font-size: 12px;
+	color: var(--text-muted);
+	font-weight: 400;
+}

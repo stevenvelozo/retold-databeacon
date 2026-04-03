@@ -14,8 +14,12 @@
 		"build": "npx quack build",
 		"docker-build": "docker build -t retold-databeacon .",
 		"docker-run": "docker run -p 8389:8389 -v $(pwd)/data:/app/data retold-databeacon",
-		"docker-test-up": "docker compose up -d mysql",
-		"docker-test-down": "docker compose down"
+		"docker-up": "docker compose up -d --build",
+		"docker-down": "docker compose down",
+		"docker-test-up": "docker compose -f test/docker-compose.yml up -d",
+		"docker-test-down": "docker compose -f test/docker-compose.yml down",
+		"dev": "node test/dev-server.js",
+		"dev-seed": "node test/seed-dev.js"
 	},
 	"mocha": {
 		"spec": "test/RetoldDataBeacon_tests.js",
