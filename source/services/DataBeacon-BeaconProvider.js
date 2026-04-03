@@ -1,0 +1,419 @@
+/**
+ * DataBeacon - Beacon Provider Service
+ *
+ * Registers the DataBeacon as a beacon in the Ultravisor mesh,
+ * exposing data access and management capabilities so other nodes
+ * can interact with the connected databases remotely.
+ *
+ * Two capabilities are registered:
+ *   - DataBeaconAccess:      Read operations (list connections, tables, records, query)
+ *   - DataBeaconManagement:  Write operations (add connection, introspect, enable/disable endpoints)
+ *
+ * @author Steven Velozo <steven@velozo.com>
+ */
+const libFableServiceProviderBase = require('fable-serviceproviderbase');
+
+let libBeaconService = null;
+try
+{
+	libBeaconService = require('ultravisor-beacon');
+}
+catch (pError)
+{
+	// ultravisor-beacon is optional at load time
+}
+
+const defaultBeaconProviderOptions = (
+	{
+		RoutePrefix: '/beacon'
+	});
+
+class DataBeaconBeaconProvider extends libFableServiceProviderBase
+{
+	constructor(pFable, pOptions, pServiceHash)
+	{
+		let tmpOptions = Object.assign({}, defaultBeaconProviderOptions, pOptions);
+		super(pFable, tmpOptions, pServiceHash);
+
+		this.serviceType = 'DataBeaconBeaconProvider';
+
+		this._BeaconService = null;
+	}
+
+	/**
+	 * Connect to an Ultravisor coordinator as a beacon.
+	 *
+	 * @param {object} pBeaconConfig Beacon configuration:
+	 *   - ServerURL {string} Ultravisor server URL (required)
+	 *   - Name {string} Beacon name (default: 'retold-databeacon')
+	 *   - Password {string} Auth password (default: '')
+	 *   - MaxConcurrent {number} Max concurrent work items (default: 3)
+	 *   - Tags {object} Beacon tags (default: {})
+	 * @param {Function} fCallback Called with (pError)
+	 */
+	connectBeacon(pBeaconConfig, fCallback)
+	{
+		if (!libBeaconService)
+		{
+			return fCallback(new Error('ultravisor-beacon module is not installed.'));
+		}
+
+		if (!pBeaconConfig || !pBeaconConfig.ServerURL)
+		{
+			return fCallback(new Error('connectBeacon requires a ServerURL in the config.'));
+		}
+
+		if (this._BeaconService && this._BeaconService.isEnabled())
+		{
+			this.log.warn('DataBeaconBeaconProvider: beacon already connected.');
+			return fCallback(null);
+		}
+
+		this.fable.addServiceTypeIfNotExists('UltravisorBeacon', libBeaconService);
+
+		this._BeaconService = this.fable.instantiateServiceProviderWithoutRegistration('UltravisorBeacon',
+			{
+				ServerURL: pBeaconConfig.ServerURL,
+				Name: pBeaconConfig.Name || 'retold-databeacon',
+				Password: pBeaconConfig.Password || '',
+				MaxConcurrent: pBeaconConfig.MaxConcurrent || 3,
+				StagingPath: pBeaconConfig.StagingPath || process.cwd(),
+				Tags: pBeaconConfig.Tags || {},
+				BindAddresses: pBeaconConfig.BindAddresses || []
+			});
+
+		let tmpFable = this.fable;
+		let tmpLog = this.log;
+
+		// ---------------------------------------------------------
+		// Capability: DataBeaconAccess
+		// Read operations against the beacon's connected databases
+		// ---------------------------------------------------------
+		this._BeaconService.registerCapability(
+			{
+				Capability: 'DataBeaconAccess',
+				Name: 'DataBeaconAccessProvider',
+				actions:
+				{
+					'ListConnections':
+					{
+						Description: 'List all configured database connections',
+						SettingsSchema: [],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							if (!tmpFable.DAL || !tmpFable.DAL.BeaconConnection)
+							{
+								return fHandlerCallback(null, { Connections: [] });
+							}
+
+							let tmpQuery = tmpFable.DAL.BeaconConnection.query.clone()
+								.addFilter('Deleted', 0);
+
+							tmpFable.DAL.BeaconConnection.doReads(tmpQuery,
+								(pError, pQuery, pRecords) =>
+								{
+									if (pError)
+									{
+										return fHandlerCallback(pError);
+									}
+									// Mask configs
+									for (let i = 0; i < pRecords.length; i++)
+									{
+										pRecords[i].Config = '{}';
+									}
+									return fHandlerCallback(null, { Connections: pRecords });
+								});
+						}
+					},
+					'ListTables':
+					{
+						Description: 'List introspected tables for a connection',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							let tmpConnID = tmpSettings.IDBeaconConnection;
+
+							if (!tmpConnID)
+							{
+								return fHandlerCallback(new Error('IDBeaconConnection is required'));
+							}
+
+							let tmpQuery = tmpFable.DAL.IntrospectedTable.query.clone()
+								.addFilter('IDBeaconConnection', tmpConnID)
+								.addFilter('Deleted', 0);
+
+							tmpFable.DAL.IntrospectedTable.doReads(tmpQuery,
+								(pError, pQuery, pRecords) =>
+								{
+									if (pError)
+									{
+										return fHandlerCallback(pError);
+									}
+									let tmpTables = pRecords.map((pR) => ({
+										TableName: pR.TableName,
+										EndpointsEnabled: !!pR.EndpointsEnabled,
+										RowCountEstimate: pR.RowCountEstimate
+									}));
+									return fHandlerCallback(null, { Tables: tmpTables });
+								});
+						}
+					},
+					'ReadRecords':
+					{
+						Description: 'Read records from an enabled dynamic endpoint table',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true },
+							{ Name: 'TableName', DataType: 'String', Required: true },
+							{ Name: 'Cap', DataType: 'Number', Required: false },
+							{ Name: 'Begin', DataType: 'Number', Required: false }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							let tmpConnID = tmpSettings.IDBeaconConnection;
+							let tmpTableName = tmpSettings.TableName;
+							let tmpCap = tmpSettings.Cap || 100;
+
+							let tmpKey = `${tmpConnID}-${tmpTableName}`;
+							let tmpEndpointEntry = tmpFable.DataBeaconDynamicEndpointManager._EnabledEndpoints[tmpKey];
+
+							if (!tmpEndpointEntry)
+							{
+								return fHandlerCallback(new Error(`Endpoint not enabled for ${tmpTableName}`));
+							}
+
+							let tmpQuery = tmpEndpointEntry.dal.query.clone()
+								.setCap(tmpCap);
+
+							if (tmpSettings.Begin)
+							{
+								tmpQuery.setBegin(tmpSettings.Begin);
+							}
+
+							tmpEndpointEntry.dal.doReads(tmpQuery,
+								(pError, pQuery, pRecords) =>
+								{
+									if (pError)
+									{
+										return fHandlerCallback(pError);
+									}
+									return fHandlerCallback(null, { Records: pRecords, Count: pRecords.length });
+								});
+						}
+					},
+					'QueryTable':
+					{
+						Description: 'Execute a read-only SQL query against a connected database',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true },
+							{ Name: 'SQL', DataType: 'String', Required: true }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							let tmpConnID = tmpSettings.IDBeaconConnection;
+							let tmpSQL = tmpSettings.SQL;
+
+							tmpFable.DataBeaconSchemaIntrospector.executeQuery(tmpConnID, tmpSQL,
+								(pError, pResults) =>
+								{
+									if (pError)
+									{
+										return fHandlerCallback(pError);
+									}
+									return fHandlerCallback(null, { Rows: pResults, RowCount: Array.isArray(pResults) ? pResults.length : 0 });
+								});
+						}
+					}
+				}
+			});
+
+		// ---------------------------------------------------------
+		// Capability: DataBeaconManagement
+		// Write/admin operations
+		// ---------------------------------------------------------
+		this._BeaconService.registerCapability(
+			{
+				Capability: 'DataBeaconManagement',
+				Name: 'DataBeaconManagementProvider',
+				actions:
+				{
+					'Introspect':
+					{
+						Description: 'Introspect all tables for a connected database',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							let tmpConnID = tmpSettings.IDBeaconConnection;
+
+							tmpFable.DataBeaconSchemaIntrospector.introspect(tmpConnID,
+								(pError, pResults) =>
+								{
+									if (pError)
+									{
+										return fHandlerCallback(pError);
+									}
+									return fHandlerCallback(null,
+									{
+										TableCount: pResults.length,
+										Tables: pResults.map((pR) => ({ TableName: pR.TableName, ColumnCount: pR.Columns.length }))
+									});
+								});
+						}
+					},
+					'EnableEndpoint':
+					{
+						Description: 'Enable CRUD REST endpoints for an introspected table',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true },
+							{ Name: 'TableName', DataType: 'String', Required: true }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							tmpFable.DataBeaconDynamicEndpointManager.enableEndpoint(
+								tmpSettings.IDBeaconConnection, tmpSettings.TableName, fHandlerCallback);
+						}
+					},
+					'DisableEndpoint':
+					{
+						Description: 'Disable CRUD REST endpoints for an introspected table',
+						SettingsSchema:
+						[
+							{ Name: 'IDBeaconConnection', DataType: 'Number', Required: true },
+							{ Name: 'TableName', DataType: 'String', Required: true }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							tmpFable.DataBeaconDynamicEndpointManager.disableEndpoint(
+								tmpSettings.IDBeaconConnection, tmpSettings.TableName, fHandlerCallback);
+						}
+					}
+				}
+			});
+
+		// Enable the beacon
+		this._BeaconService.enable(
+			(pError) =>
+			{
+				if (pError)
+				{
+					tmpLog.error(`Error enabling DataBeacon beacon: ${pError}`);
+					return fCallback(pError);
+				}
+				tmpLog.info(`DataBeacon beacon connected to ${pBeaconConfig.ServerURL}`);
+				return fCallback(null);
+			});
+	}
+
+	/**
+	 * Disconnect from the Ultravisor coordinator.
+	 */
+	disconnectBeacon(fCallback)
+	{
+		if (!this._BeaconService)
+		{
+			return fCallback();
+		}
+
+		this._BeaconService.disable(
+			(pError) =>
+			{
+				this._BeaconService = null;
+				return fCallback(pError || null);
+			});
+	}
+
+	/**
+	 * Check if the beacon is currently connected.
+	 */
+	isBeaconConnected()
+	{
+		return !!(this._BeaconService && this._BeaconService.isEnabled());
+	}
+
+	// ================================================================
+	// REST Routes
+	// ================================================================
+
+	connectRoutes(pOratorServiceServer)
+	{
+		let tmpRoutePrefix = this.options.RoutePrefix;
+
+		// POST /beacon/ultravisor/connect -- connect to Ultravisor coordinator
+		pOratorServiceServer.doPost(`${tmpRoutePrefix}/ultravisor/connect`,
+			(pRequest, pResponse, fNext) =>
+			{
+				let tmpBody = pRequest.body || {};
+
+				if (!tmpBody.ServerURL)
+				{
+					pResponse.send({ Success: false, Error: 'ServerURL is required' });
+					return fNext();
+				}
+
+				this.connectBeacon(tmpBody,
+					(pError) =>
+					{
+						if (pError)
+						{
+							pResponse.send({ Success: false, Error: pError.message || pError });
+						}
+						else
+						{
+							pResponse.send({ Success: true, Status: 'Connected' });
+						}
+						return fNext();
+					});
+			});
+
+		// POST /beacon/ultravisor/disconnect -- disconnect from Ultravisor
+		pOratorServiceServer.doPost(`${tmpRoutePrefix}/ultravisor/disconnect`,
+			(pRequest, pResponse, fNext) =>
+			{
+				this.disconnectBeacon(
+					(pError) =>
+					{
+						if (pError)
+						{
+							pResponse.send({ Success: false, Error: pError.message || pError });
+						}
+						else
+						{
+							pResponse.send({ Success: true, Status: 'Disconnected' });
+						}
+						return fNext();
+					});
+			});
+
+		// GET /beacon/ultravisor/status -- beacon connection status
+		pOratorServiceServer.doGet(`${tmpRoutePrefix}/ultravisor/status`,
+			(pRequest, pResponse, fNext) =>
+			{
+				pResponse.send(
+				{
+					Connected: this.isBeaconConnected(),
+					BeaconName: this._BeaconService ? (this._BeaconService.options.Name || 'retold-databeacon') : null
+				});
+				return fNext();
+			});
+
+		this.fable.log.info(`DataBeacon BeaconProvider routes connected at ${tmpRoutePrefix}/ultravisor*`);
+	}
+}
+
+module.exports = DataBeaconBeaconProvider;
+module.exports.serviceType = 'DataBeaconBeaconProvider';
+module.exports.default_configuration = defaultBeaconProviderOptions;

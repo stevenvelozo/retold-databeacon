@@ -1,0 +1,2017 @@
+[
+    {
+        "comment": "/**\n * Retold DataBeacon\n *\n * Deployable data beacon service — connect to remote databases,\n * introspect schemas, generate REST endpoints, and expose beacon\n * capabilities to the Ultravisor mesh.\n *\n * @author Steven Velozo <steven@velozo.com>\n */",
+        "meta": {
+            "range": [
+                257,
+                323
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 10,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000003",
+                "name": "libFableServiceProviderBase",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "description": "Retold DataBeacon\n\nDeployable data beacon service — connect to remote databases,\nintrospect schemas, generate REST endpoints, and expose beacon\ncapabilities to the Ultravisor mesh.",
+        "author": [
+            "Steven Velozo <steven@velozo.com>"
+        ],
+        "name": "libFableServiceProviderBase",
+        "longname": "libFableServiceProviderBase",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                332,
+                361
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 12,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000009",
+                "name": "libOrator",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libOrator",
+        "longname": "libOrator",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                369,
+                440
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 13,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000015",
+                "name": "libOratorServiceServerRestify",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libOratorServiceServerRestify",
+        "longname": "libOratorServiceServerRestify",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                448,
+                503
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 14,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000021",
+                "name": "libOratorStaticServer",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libOratorStaticServer",
+        "longname": "libOratorStaticServer",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                512,
+                541
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 16,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000027",
+                "name": "libMeadow",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libMeadow",
+        "longname": "libMeadow",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                549,
+                597
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 17,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000033",
+                "name": "libMeadowEndpoints",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libMeadowEndpoints",
+        "longname": "libMeadowEndpoints",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                606,
+                631
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 19,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000039",
+                "name": "libPath",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libPath",
+        "longname": "libPath",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                639,
+                660
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 20,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000045",
+                "name": "libFs",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libFs",
+        "longname": "libFs",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                669,
+                753
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 22,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000051",
+                "name": "libDataBeaconConnectionBridge",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libDataBeaconConnectionBridge",
+        "longname": "libDataBeaconConnectionBridge",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                761,
+                849
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 23,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000057",
+                "name": "libDataBeaconSchemaIntrospector",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libDataBeaconSchemaIntrospector",
+        "longname": "libDataBeaconSchemaIntrospector",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                857,
+                953
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 24,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000063",
+                "name": "libDataBeaconDynamicEndpointManager",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libDataBeaconDynamicEndpointManager",
+        "longname": "libDataBeaconDynamicEndpointManager",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                961,
+                1041
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 25,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000069",
+                "name": "libDataBeaconBeaconProvider",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "libDataBeaconBeaconProvider",
+        "longname": "libDataBeaconBeaconProvider",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                1109,
+                2496
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 28,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000075",
+                "name": "DATABEACON_SCHEMA_SQL",
+                "type": "TemplateLiteral",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "DATABEACON_SCHEMA_SQL",
+        "longname": "DATABEACON_SCHEMA_SQL",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2505,
+                3055
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 63,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000080",
+                "name": "defaultDataBeaconSettings",
+                "type": "ObjectExpression",
+                "value": "{\"AutoStartOrator\":true,\"AutoCreateSchema\":false,\"FullMeadowSchemaPath\":\"\",\"FullMeadowSchemaFilename\":\"MeadowModel-DataBeacon.json\",\"WebAppPath\":false,\"Endpoints\":\"\",\"DataBeacon\":\"\"}"
+            }
+        },
+        "undocumented": true,
+        "name": "defaultDataBeaconSettings",
+        "longname": "defaultDataBeaconSettings",
+        "kind": "constant",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2540,
+                2561
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 65,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000083",
+                "name": "AutoStartOrator",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "AutoStartOrator",
+        "longname": "defaultDataBeaconSettings.AutoStartOrator",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2565,
+                2588
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 66,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000085",
+                "name": "AutoCreateSchema",
+                "type": "Literal",
+                "value": false
+            }
+        },
+        "undocumented": true,
+        "name": "AutoCreateSchema",
+        "longname": "defaultDataBeaconSettings.AutoCreateSchema",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2593,
+                2640
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 68,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000087",
+                "name": "FullMeadowSchemaPath",
+                "type": "TemplateLiteral",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "FullMeadowSchemaPath",
+        "longname": "defaultDataBeaconSettings.FullMeadowSchemaPath",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2644,
+                2699
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 69,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000095",
+                "name": "FullMeadowSchemaFilename",
+                "type": "Literal",
+                "value": "MeadowModel-DataBeacon.json"
+            }
+        },
+        "undocumented": true,
+        "name": "FullMeadowSchemaFilename",
+        "longname": "defaultDataBeaconSettings.FullMeadowSchemaFilename",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2770,
+                2787
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 72,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000097",
+                "name": "WebAppPath",
+                "type": "Literal",
+                "value": false
+            }
+        },
+        "undocumented": true,
+        "name": "WebAppPath",
+        "longname": "defaultDataBeaconSettings.WebAppPath",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2817,
+                2998
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 75,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000099",
+                "name": "Endpoints",
+                "type": "ObjectExpression",
+                "value": "{\"MeadowEndpoints\":true,\"ConnectionBridge\":true,\"SchemaIntrospector\":true,\"DynamicEndpointManager\":true,\"BeaconProvider\":true,\"WebUI\":true}"
+            }
+        },
+        "undocumented": true,
+        "name": "Endpoints",
+        "longname": "defaultDataBeaconSettings.Endpoints",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2837,
+                2858
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 77,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000101",
+                "name": "MeadowEndpoints",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "MeadowEndpoints",
+        "longname": "defaultDataBeaconSettings.Endpoints.MeadowEndpoints",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2864,
+                2886
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 78,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000103",
+                "name": "ConnectionBridge",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "ConnectionBridge",
+        "longname": "defaultDataBeaconSettings.Endpoints.ConnectionBridge",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2892,
+                2916
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 79,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000105",
+                "name": "SchemaIntrospector",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "SchemaIntrospector",
+        "longname": "defaultDataBeaconSettings.Endpoints.SchemaIntrospector",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2922,
+                2950
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 80,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000107",
+                "name": "DynamicEndpointManager",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "DynamicEndpointManager",
+        "longname": "defaultDataBeaconSettings.Endpoints.DynamicEndpointManager",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2956,
+                2976
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 81,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000109",
+                "name": "BeaconProvider",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "BeaconProvider",
+        "longname": "defaultDataBeaconSettings.Endpoints.BeaconProvider",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                2982,
+                2993
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 82,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000111",
+                "name": "WebUI",
+                "type": "Literal",
+                "value": true
+            }
+        },
+        "undocumented": true,
+        "name": "WebUI",
+        "longname": "defaultDataBeaconSettings.Endpoints.WebUI",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.Endpoints",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3003,
+                3051
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 85,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000113",
+                "name": "DataBeacon",
+                "type": "ObjectExpression",
+                "value": "{\"RoutePrefix\":\"/beacon\"}"
+            }
+        },
+        "undocumented": true,
+        "name": "DataBeacon",
+        "longname": "defaultDataBeaconSettings.DataBeacon",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3024,
+                3046
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 87,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000115",
+                "name": "RoutePrefix",
+                "type": "Literal",
+                "value": "/beacon"
+            }
+        },
+        "undocumented": true,
+        "name": "RoutePrefix",
+        "longname": "defaultDataBeaconSettings.DataBeacon.RoutePrefix",
+        "kind": "member",
+        "memberof": "defaultDataBeaconSettings.DataBeacon",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3058,
+                14507
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 91,
+            "columnno": 0,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000117",
+                "name": "RetoldDataBeacon",
+                "type": "ClassDeclaration",
+                "paramnames": [
+                    "pFable",
+                    "pOptions",
+                    "pServiceHash"
+                ]
+            }
+        },
+        "undocumented": true,
+        "name": "RetoldDataBeacon",
+        "longname": "RetoldDataBeacon",
+        "kind": "class",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3120,
+                5345
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 93,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000121",
+                "name": "RetoldDataBeacon",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "pFable",
+                    "pOptions",
+                    "pServiceHash"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "undocumented": true,
+        "name": "RetoldDataBeacon",
+        "longname": "RetoldDataBeacon",
+        "kind": "class",
+        "scope": "global",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3173,
+                3268
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 95,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000129",
+                "name": "tmpOptions",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpOptions",
+        "longname": "<anonymous>~tmpOptions",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3316,
+                3353
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 98,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000153",
+                "name": "this.serviceType",
+                "type": "Literal",
+                "value": "RetoldDataBeacon",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "serviceType",
+        "longname": "RetoldDataBeacon#serviceType",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                3449,
+                3550
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 101,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000159",
+                "name": "this.options",
+                "type": "CallExpression",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "options",
+        "longname": "RetoldDataBeacon#options",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4049,
+                4085
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 114,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000229",
+                "name": "this._Meadow",
+                "type": "CallExpression",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "_Meadow",
+        "longname": "RetoldDataBeacon#_Meadow",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4089,
+                4103
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 115,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000239",
+                "name": "this._DAL",
+                "type": "ObjectExpression",
+                "value": "{}",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "_DAL",
+        "longname": "RetoldDataBeacon#_DAL",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4107,
+                4133
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 116,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000245",
+                "name": "this._MeadowEndpoints",
+                "type": "ObjectExpression",
+                "value": "{}",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "_MeadowEndpoints",
+        "longname": "RetoldDataBeacon#_MeadowEndpoints",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4169,
+                4221
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 119,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000251",
+                "name": "tmpRoutePrefix",
+                "type": "MemberExpression",
+                "value": "this.options.DataBeacon.RoutePrefix"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpRoutePrefix",
+        "longname": "<anonymous>~tmpRoutePrefix",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4423,
+                4450
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 124,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000282",
+                "name": "RoutePrefix",
+                "type": "Identifier",
+                "value": "tmpRoutePrefix"
+            }
+        },
+        "undocumented": true,
+        "name": "RoutePrefix",
+        "longname": "RoutePrefix",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4664,
+                4691
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 130,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000306",
+                "name": "RoutePrefix",
+                "type": "Identifier",
+                "value": "tmpRoutePrefix"
+            }
+        },
+        "undocumented": true,
+        "name": "RoutePrefix",
+        "longname": "RoutePrefix",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                4917,
+                4944
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 136,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000330",
+                "name": "RoutePrefix",
+                "type": "Identifier",
+                "value": "tmpRoutePrefix"
+            }
+        },
+        "undocumented": true,
+        "name": "RoutePrefix",
+        "longname": "RoutePrefix",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                5146,
+                5173
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 142,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000354",
+                "name": "RoutePrefix",
+                "type": "Identifier",
+                "value": "tmpRoutePrefix"
+            }
+        },
+        "undocumented": true,
+        "name": "RoutePrefix",
+        "longname": "RoutePrefix",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                5225,
+                5251
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 146,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000357",
+                "name": "this.fable.DAL",
+                "type": "MemberExpression",
+                "value": "this._DAL",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "DAL",
+        "longname": "RetoldDataBeacon#fable.DAL",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon#fable",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                5255,
+                5305
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 147,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000367",
+                "name": "this.fable.MeadowEndpoints",
+                "type": "MemberExpression",
+                "value": "this._MeadowEndpoints",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "MeadowEndpoints",
+        "longname": "RetoldDataBeacon#fable.MeadowEndpoints",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon#fable",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                5310,
+                5341
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 149,
+            "columnno": 2,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000377",
+                "name": "this.serviceInitialized",
+                "type": "Literal",
+                "value": false,
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "serviceInitialized",
+        "longname": "RetoldDataBeacon#serviceInitialized",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "/**\n\t * Check if an endpoint group is enabled in the Endpoints configuration.\n\t */",
+        "meta": {
+            "range": [
+                5432,
+                5658
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 155,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000382",
+                "name": "RetoldDataBeacon#isEndpointGroupEnabled",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "pGroupName"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "description": "Check if an endpoint group is enabled in the Endpoints configuration.",
+        "name": "isEndpointGroupEnabled",
+        "longname": "RetoldDataBeacon#isEndpointGroupEnabled",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "/**\n\t * Create the database schema using the embedded SQL.\n\t */",
+        "meta": {
+            "range": [
+                5726,
+                6336
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 171,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000421",
+                "name": "RetoldDataBeacon#createSchema",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "fCallback"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "description": "Create the database schema using the embedded SQL.",
+        "name": "createSchema",
+        "longname": "RetoldDataBeacon#createSchema",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "/**\n\t * Load a parsed model object and create DAL objects and Meadow Endpoints\n\t * for each entity in it.\n\t */",
+        "meta": {
+            "range": [
+                6451,
+                7600
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 199,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000507",
+                "name": "RetoldDataBeacon#loadModel",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "pModelName",
+                    "pModelObject",
+                    "fCallback"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "description": "Load a parsed model object and create DAL objects and Meadow Endpoints\nfor each entity in it.",
+        "name": "loadModel",
+        "longname": "RetoldDataBeacon#loadModel",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                6578,
+                6626
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 203,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000528",
+                "name": "tmpEntityList",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpEntityList",
+        "longname": "<anonymous>~tmpEntityList",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                6748,
+                6753
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 207,
+            "columnno": 11,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000556",
+                "name": "i",
+                "type": "Literal",
+                "value": 0
+            }
+        },
+        "undocumented": true,
+        "name": "i",
+        "longname": "<anonymous>~i",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                6797,
+                6832
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 209,
+            "columnno": 7,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000568",
+                "name": "tmpDALEntityName",
+                "type": "MemberExpression",
+                "value": "tmpEntityList[undefined]"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpDALEntityName",
+        "longname": "<anonymous>~tmpDALEntityName",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                6841,
+                6923
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 210,
+            "columnno": 7,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000574",
+                "name": "tmpRoutesAlreadyConnected",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpRoutesAlreadyConnected",
+        "longname": "<anonymous>~tmpRoutesAlreadyConnected",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                6946,
+                6998
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 214,
+            "columnno": 8,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000586",
+                "name": "tmpDALSchema",
+                "type": "MemberExpression",
+                "value": "pModelObject.Tables[undefined]"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpDALSchema",
+        "longname": "<anonymous>~tmpDALSchema",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                7008,
+                7054
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 215,
+            "columnno": 8,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000594",
+                "name": "tmpDALMeadowSchema",
+                "type": "MemberExpression",
+                "value": "tmpDALSchema.MeadowSchema"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpDALMeadowSchema",
+        "longname": "<anonymous>~tmpDALMeadowSchema",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                7061,
+                7145
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 217,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000600",
+                "name": "this._DAL[undefined]",
+                "type": "CallExpression",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "_DAL[undefined]",
+        "longname": "RetoldDataBeacon#_DAL[undefined]",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                7206,
+                7299
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 219,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000624",
+                "name": "this._MeadowEndpoints[undefined]",
+                "type": "CallExpression",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "_MeadowEndpoints[undefined]",
+        "longname": "RetoldDataBeacon#_MeadowEndpoints[undefined]",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "/**\n\t * Load a model from a JSON file on disk.\n\t */",
+        "meta": {
+            "range": [
+                7656,
+                8151
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 238,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000676",
+                "name": "RetoldDataBeacon#loadModelFromFile",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "pModelName",
+                    "pModelPath",
+                    "pModelFilename",
+                    "fCallback"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "description": "Load a model from a JSON file on disk.",
+        "name": "loadModelFromFile",
+        "longname": "RetoldDataBeacon#loadModelFromFile",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                7840,
+                7854
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 242,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000702",
+                "name": "tmpModelObject"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpModelObject",
+        "longname": "<anonymous>~tmpModelObject",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                7869,
+                7927
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 245,
+            "columnno": 3,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000707",
+                "name": "tmpModelObject",
+                "type": "CallExpression",
+                "funcscope": "<anonymous>",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "tmpModelObject",
+        "longname": "<anonymous>~tmpModelObject",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8154,
+                13900
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 256,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000747",
+                "name": "RetoldDataBeacon#initializeService",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "fCallback"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "undocumented": true,
+        "name": "initializeService",
+        "longname": "RetoldDataBeacon#initializeService",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8341,
+                8383
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 263,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000764",
+                "name": "tmpAnticipate",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpAnticipate",
+        "longname": "<anonymous>~tmpAnticipate",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8488,
+                8618
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 268,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000784",
+                "name": "tmpGroupNames",
+                "type": "ArrayExpression",
+                "value": "[\"MeadowEndpoints\",\"ConnectionBridge\",\"SchemaIntrospector\",\"DynamicEndpointManager\",\"BeaconProvider\",\"WebUI\"]"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpGroupNames",
+        "longname": "<anonymous>~tmpGroupNames",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8626,
+                8647
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 269,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000794",
+                "name": "tmpEnabledGroups",
+                "type": "ArrayExpression",
+                "value": "[]"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpEnabledGroups",
+        "longname": "<anonymous>~tmpEnabledGroups",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8655,
+                8677
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 270,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000798",
+                "name": "tmpDisabledGroups",
+                "type": "ArrayExpression",
+                "value": "[]"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpDisabledGroups",
+        "longname": "<anonymous>~tmpDisabledGroups",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                8690,
+                8695
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 271,
+            "columnno": 11,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100000803",
+                "name": "i",
+                "type": "Literal",
+                "value": 0
+            }
+        },
+        "undocumented": true,
+        "name": "i",
+        "longname": "<anonymous>~i",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                10172,
+                10248
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 333,
+            "columnno": 9,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001010",
+                "name": "tmpModelName",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpModelName",
+        "longname": "<anonymous>~tmpModelName",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                11416,
+                11455
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 378,
+            "columnno": 8,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001158",
+                "name": "tmpWebAppPath",
+                "type": "MemberExpression",
+                "value": "this.options.WebAppPath"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpWebAppPath",
+        "longname": "<anonymous>~tmpWebAppPath",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                11492,
+                11561
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 381,
+            "columnno": 5,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001170",
+                "name": "tmpWebAppPath",
+                "type": "CallExpression",
+                "funcscope": "<anonymous>",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "tmpWebAppPath",
+        "longname": "<anonymous>~tmpWebAppPath",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                11716,
+                11732
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 387,
+            "columnno": 8,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001194",
+                "name": "tmpPictMinJsPath"
+            }
+        },
+        "undocumented": true,
+        "name": "tmpPictMinJsPath",
+        "longname": "<anonymous>~tmpPictMinJsPath",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                11753,
+                11812
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 390,
+            "columnno": 5,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001199",
+                "name": "tmpPictMinJsPath",
+                "type": "CallExpression",
+                "funcscope": "<anonymous>",
+                "value": "",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "tmpPictMinJsPath",
+        "longname": "<anonymous>~tmpPictMinJsPath",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                12221,
+                12256
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 407,
+            "columnno": 32,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001259",
+                "name": "Error",
+                "type": "Literal",
+                "value": "Could not read pict.min.js"
+            }
+        },
+        "undocumented": true,
+        "name": "Error",
+        "longname": "Error",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                12563,
+                12655
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 418,
+            "columnno": 8,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001293",
+                "name": "tmpStaticServer",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpStaticServer",
+        "longname": "<anonymous>~tmpStaticServer",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                13835,
+                13865
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 472,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001443",
+                "name": "this.serviceInitialized",
+                "type": "Literal",
+                "value": true,
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "serviceInitialized",
+        "longname": "RetoldDataBeacon#serviceInitialized",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                13903,
+                14505
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 477,
+            "columnno": 1,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001451",
+                "name": "RetoldDataBeacon#stopService",
+                "type": "MethodDefinition",
+                "paramnames": [
+                    "fCallback"
+                ]
+            },
+            "vars": {
+                "": null
+            }
+        },
+        "undocumented": true,
+        "name": "stopService",
+        "longname": "RetoldDataBeacon#stopService",
+        "kind": "function",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                14135,
+                14177
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 486,
+            "columnno": 6,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001480",
+                "name": "tmpAnticipate",
+                "type": "CallExpression",
+                "value": ""
+            }
+        },
+        "undocumented": true,
+        "name": "tmpAnticipate",
+        "longname": "<anonymous>~tmpAnticipate",
+        "kind": "member",
+        "memberof": "<anonymous>",
+        "scope": "inner",
+        "params": []
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                14439,
+                14470
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 498,
+            "columnno": 4,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001535",
+                "name": "this.serviceInitialized",
+                "type": "Literal",
+                "value": false,
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "serviceInitialized",
+        "longname": "RetoldDataBeacon#serviceInitialized",
+        "kind": "member",
+        "memberof": "RetoldDataBeacon",
+        "scope": "instance"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                14509,
+                14542
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 504,
+            "columnno": 0,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001544",
+                "name": "module.exports",
+                "type": "Identifier",
+                "value": "RetoldDataBeacon",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "exports",
+        "longname": "module.exports",
+        "kind": "member",
+        "memberof": "module",
+        "scope": "static"
+    },
+    {
+        "comment": "",
+        "meta": {
+            "range": [
+                14544,
+                14604
+            ],
+            "filename": "Retold-DataBeacon.js",
+            "lineno": 505,
+            "columnno": 0,
+            "path": "/Users/steven/Code/retold/modules/apps/retold-databeacon/source",
+            "code": {
+                "id": "astnode100001550",
+                "name": "module.exports.DATABEACON_SCHEMA_SQL",
+                "type": "Identifier",
+                "value": "DATABEACON_SCHEMA_SQL",
+                "paramnames": []
+            }
+        },
+        "undocumented": true,
+        "name": "DATABEACON_SCHEMA_SQL",
+        "longname": "DATABEACON_SCHEMA_SQL",
+        "kind": "member",
+        "scope": "global"
+    },
+    {
+        "kind": "package",
+        "longname": "package:undefined",
+        "files": [
+            "/Users/steven/Code/retold/modules/apps/retold-databeacon/source/Retold-DataBeacon.js"
+        ]
+    }
+]

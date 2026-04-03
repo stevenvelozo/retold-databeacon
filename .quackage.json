@@ -1,0 +1,19 @@
+{
+	"GulpfileConfiguration":
+	{
+		"EntrypointInputSourceFile": "{~Data:AppData.CWD~}/source/services/web-app/pict-app/Pict-DataBeacon-Bundle.js",
+		"LibraryObjectName": "retoldDataBeacon",
+		"LibraryOutputFolder": "{~Data:AppData.CWD~}/source/services/web-app/web/",
+		"LibraryUniminifiedFileName": "retold-databeacon.{~Data:Record.BuildFileLabel~}js",
+		"LibraryMinifiedFileName": "retold-databeacon.{~Data:Record.BuildFileLabel~}min.js"
+	},
+	"GulpExecutions":
+	[
+		{
+			"Hash": "default",
+			"Name": "Default standard build.",
+			"BuildFileLabel": "",
+			"BrowsersListRC": "since 2022"
+		}
+	]
+}

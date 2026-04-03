@@ -1,0 +1,186 @@
+{
+	"Tables": {
+		"BeaconConnection": {
+			"TableName": "BeaconConnection",
+			"Domain": "Default",
+			"Columns": [
+				{ "Column": "IDBeaconConnection", "DataType": "ID" },
+				{ "Column": "GUIDBeaconConnection", "DataType": "GUID", "Size": "36" },
+				{ "Column": "CreateDate", "DataType": "DateTime" },
+				{ "Column": "CreatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "UpdateDate", "DataType": "DateTime" },
+				{ "Column": "UpdatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "Deleted", "DataType": "Boolean" },
+				{ "Column": "DeleteDate", "DataType": "DateTime" },
+				{ "Column": "DeletingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "Name", "DataType": "String", "Size": "200" },
+				{ "Column": "Type", "DataType": "String", "Size": "64" },
+				{ "Column": "Config", "DataType": "Text" },
+				{ "Column": "Status", "DataType": "String", "Size": "32" },
+				{ "Column": "LastTestedDate", "DataType": "DateTime" },
+				{ "Column": "AutoConnect", "DataType": "Boolean" },
+				{ "Column": "Description", "DataType": "Text" }
+			],
+			"Description": "Stores connection configurations for external databases.",
+			"MeadowSchema": {
+				"Scope": "BeaconConnection",
+				"DefaultIdentifier": "IDBeaconConnection",
+				"Domain": "Default",
+				"Schema": [
+					{ "Column": "IDBeaconConnection", "Type": "AutoIdentity", "Size": "Default" },
+					{ "Column": "GUIDBeaconConnection", "Type": "AutoGUID", "Size": "36" },
+					{ "Column": "CreateDate", "Type": "CreateDate", "Size": "Default" },
+					{ "Column": "CreatingIDUser", "Type": "CreateIDUser", "Size": "int" },
+					{ "Column": "UpdateDate", "Type": "UpdateDate", "Size": "Default" },
+					{ "Column": "UpdatingIDUser", "Type": "UpdateIDUser", "Size": "int" },
+					{ "Column": "Deleted", "Type": "Deleted", "Size": "Default" },
+					{ "Column": "DeleteDate", "Type": "DeleteDate", "Size": "Default" },
+					{ "Column": "DeletingIDUser", "Type": "DeleteIDUser", "Size": "int" },
+					{ "Column": "Name", "Type": "String", "Size": "200" },
+					{ "Column": "Type", "Type": "String", "Size": "64" },
+					{ "Column": "Config", "Type": "String", "Size": "Default" },
+					{ "Column": "Status", "Type": "String", "Size": "32" },
+					{ "Column": "LastTestedDate", "Type": "String", "Size": "Default" },
+					{ "Column": "AutoConnect", "Type": "Boolean", "Size": "Default" },
+					{ "Column": "Description", "Type": "String", "Size": "Default" }
+				],
+				"DefaultObject": {
+					"IDBeaconConnection": 0,
+					"GUIDBeaconConnection": "0x0000000000000000",
+					"CreateDate": null,
+					"CreatingIDUser": 0,
+					"UpdateDate": null,
+					"UpdatingIDUser": 0,
+					"Deleted": false,
+					"DeleteDate": null,
+					"DeletingIDUser": 0,
+					"Name": "",
+					"Type": "",
+					"Config": "{}",
+					"Status": "Untested",
+					"LastTestedDate": null,
+					"AutoConnect": false,
+					"Description": ""
+				}
+			}
+		},
+		"IntrospectedTable": {
+			"TableName": "IntrospectedTable",
+			"Domain": "Default",
+			"Columns": [
+				{ "Column": "IDIntrospectedTable", "DataType": "ID" },
+				{ "Column": "GUIDIntrospectedTable", "DataType": "GUID", "Size": "36" },
+				{ "Column": "CreateDate", "DataType": "DateTime" },
+				{ "Column": "CreatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "UpdateDate", "DataType": "DateTime" },
+				{ "Column": "UpdatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "Deleted", "DataType": "Boolean" },
+				{ "Column": "DeleteDate", "DataType": "DateTime" },
+				{ "Column": "DeletingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "IDBeaconConnection", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "DatabaseName", "DataType": "String", "Size": "200" },
+				{ "Column": "TableName", "DataType": "String", "Size": "200" },
+				{ "Column": "ColumnDefinitions", "DataType": "Text" },
+				{ "Column": "LastIntrospectedDate", "DataType": "DateTime" },
+				{ "Column": "EndpointsEnabled", "DataType": "Boolean" },
+				{ "Column": "RowCountEstimate", "DataType": "Numeric", "Size": "int" }
+			],
+			"Description": "Caches introspected table metadata from external databases.",
+			"MeadowSchema": {
+				"Scope": "IntrospectedTable",
+				"DefaultIdentifier": "IDIntrospectedTable",
+				"Domain": "Default",
+				"Schema": [
+					{ "Column": "IDIntrospectedTable", "Type": "AutoIdentity", "Size": "Default" },
+					{ "Column": "GUIDIntrospectedTable", "Type": "AutoGUID", "Size": "36" },
+					{ "Column": "CreateDate", "Type": "CreateDate", "Size": "Default" },
+					{ "Column": "CreatingIDUser", "Type": "CreateIDUser", "Size": "int" },
+					{ "Column": "UpdateDate", "Type": "UpdateDate", "Size": "Default" },
+					{ "Column": "UpdatingIDUser", "Type": "UpdateIDUser", "Size": "int" },
+					{ "Column": "Deleted", "Type": "Deleted", "Size": "Default" },
+					{ "Column": "DeleteDate", "Type": "DeleteDate", "Size": "Default" },
+					{ "Column": "DeletingIDUser", "Type": "DeleteIDUser", "Size": "int" },
+					{ "Column": "IDBeaconConnection", "Type": "Numeric", "Size": "int" },
+					{ "Column": "DatabaseName", "Type": "String", "Size": "200" },
+					{ "Column": "TableName", "Type": "String", "Size": "200" },
+					{ "Column": "ColumnDefinitions", "Type": "String", "Size": "Default" },
+					{ "Column": "LastIntrospectedDate", "Type": "String", "Size": "Default" },
+					{ "Column": "EndpointsEnabled", "Type": "Boolean", "Size": "Default" },
+					{ "Column": "RowCountEstimate", "Type": "Numeric", "Size": "int" }
+				],
+				"DefaultObject": {
+					"IDIntrospectedTable": 0,
+					"GUIDIntrospectedTable": "0x0000000000000000",
+					"CreateDate": null,
+					"CreatingIDUser": 0,
+					"UpdateDate": null,
+					"UpdatingIDUser": 0,
+					"Deleted": false,
+					"DeleteDate": null,
+					"DeletingIDUser": 0,
+					"IDBeaconConnection": 0,
+					"DatabaseName": "",
+					"TableName": "",
+					"ColumnDefinitions": "[]",
+					"LastIntrospectedDate": null,
+					"EndpointsEnabled": false,
+					"RowCountEstimate": 0
+				}
+			}
+		},
+		"User": {
+			"TableName": "User",
+			"Domain": "Default",
+			"Columns": [
+				{ "Column": "IDUser", "DataType": "ID" },
+				{ "Column": "GUIDUser", "DataType": "GUID", "Size": "36" },
+				{ "Column": "CreateDate", "DataType": "DateTime" },
+				{ "Column": "CreatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "UpdateDate", "DataType": "DateTime" },
+				{ "Column": "UpdatingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "Deleted", "DataType": "Boolean" },
+				{ "Column": "DeleteDate", "DataType": "DateTime" },
+				{ "Column": "DeletingIDUser", "DataType": "Numeric", "Size": "int" },
+				{ "Column": "LoginID", "DataType": "String", "Size": "64" },
+				{ "Column": "Name", "DataType": "String", "Size": "200" }
+			],
+			"Description": "Minimal audit table required by Meadow DAL.",
+			"MeadowSchema": {
+				"Scope": "User",
+				"DefaultIdentifier": "IDUser",
+				"Domain": "Default",
+				"Schema": [
+					{ "Column": "IDUser", "Type": "AutoIdentity", "Size": "Default" },
+					{ "Column": "GUIDUser", "Type": "AutoGUID", "Size": "36" },
+					{ "Column": "CreateDate", "Type": "CreateDate", "Size": "Default" },
+					{ "Column": "CreatingIDUser", "Type": "CreateIDUser", "Size": "int" },
+					{ "Column": "UpdateDate", "Type": "UpdateDate", "Size": "Default" },
+					{ "Column": "UpdatingIDUser", "Type": "UpdateIDUser", "Size": "int" },
+					{ "Column": "Deleted", "Type": "Deleted", "Size": "Default" },
+					{ "Column": "DeleteDate", "Type": "DeleteDate", "Size": "Default" },
+					{ "Column": "DeletingIDUser", "Type": "DeleteIDUser", "Size": "int" },
+					{ "Column": "LoginID", "Type": "String", "Size": "64" },
+					{ "Column": "Name", "Type": "String", "Size": "200" }
+				],
+				"DefaultObject": {
+					"IDUser": 0,
+					"GUIDUser": "0x0000000000000000",
+					"CreateDate": null,
+					"CreatingIDUser": 0,
+					"UpdateDate": null,
+					"UpdatingIDUser": 0,
+					"Deleted": false,
+					"DeleteDate": null,
+					"DeletingIDUser": 0,
+					"LoginID": "",
+					"Name": ""
+				}
+			}
+		}
+	},
+	"TablesSequence": [
+		"User",
+		"BeaconConnection",
+		"IntrospectedTable"
+	]
+}
