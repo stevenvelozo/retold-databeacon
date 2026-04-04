@@ -298,7 +298,13 @@ async function run()
 
 	// ─── Verify ──────────────────────────────────────────
 	let tmpProjected = await facto('GET', '/1.0/ArtistTracks/0/50');
-	console.log(`    Projected records: ${Array.isArray(tmpProjected) ? tmpProjected.length : 0}`);
+	let tmpProjCount = Array.isArray(tmpProjected) ? tmpProjected.length : 0;
+	console.log(`    Projected records: ${tmpProjCount}`);
+	if (tmpProjCount > 0)
+	{
+		let tmpSample = tmpProjected[0];
+		console.log(`    Sample: ArtistName="${tmpSample.ArtistName}", ArtistId=${tmpSample.ArtistId}, TrackName="${tmpSample.TrackName}", TrackId=${tmpSample.TrackId}`);
+	}
 	console.log('');
 
 	printDone();

@@ -1605,7 +1605,7 @@ suite
 
 		test
 		(
-			'Facto UI: Verify projected records exist and comprehension was correct',
+			'Facto UI: Verify projected field values are populated end-to-end',
 			async function ()
 			{
 				if (!_FactoAvailable || !_MySQLReachable) return this.skip();
@@ -1616,21 +1616,32 @@ suite
 				libAssert.ok(Array.isArray(tmpRecords), 'Should return an array');
 				libAssert.strictEqual(tmpRecords.length, 30, `Should have 30 projected records (10 artists + 20 tracks), found ${tmpRecords.length}`);
 
-				// Verify records were created with the correct GUIDs
+				// Split by GUID prefix
 				let tmpArtistRecords = tmpRecords.filter((pR) => pR.GUIDArtistTrack && pR.GUIDArtistTrack.indexOf('artist-') >= 0);
 				let tmpTrackRecords = tmpRecords.filter((pR) => pR.GUIDArtistTrack && pR.GUIDArtistTrack.indexOf('track-') >= 0);
 
 				libAssert.strictEqual(tmpArtistRecords.length, 10, 'Should have 10 artist projection records');
 				libAssert.strictEqual(tmpTrackRecords.length, 20, 'Should have 20 track projection records');
 
-				console.log(`      Projected records: ${tmpRecords.length} total (${tmpArtistRecords.length} artists, ${tmpTrackRecords.length} tracks)`);
-				console.log(`      Artist GUIDs: ${tmpArtistRecords.map((pR) => pR.GUIDArtistTrack).join(', ')}`);
-				console.log(`      Sample track GUID: ${tmpTrackRecords[0].GUIDArtistTrack}`);
+				// Verify artist field values are populated (not empty/zero)
+				let tmpFirstArtist = tmpArtistRecords[0];
+				libAssert.ok(tmpFirstArtist.ArtistName && tmpFirstArtist.ArtistName.length > 0,
+					`Artist ArtistName should be populated, got "${tmpFirstArtist.ArtistName}"`);
+				libAssert.ok(tmpFirstArtist.ArtistId && Number(tmpFirstArtist.ArtistId) > 0,
+					`Artist ArtistId should be populated, got ${tmpFirstArtist.ArtistId}`);
 
-				// Note: The import logs confirm field values in the comprehension
-				// (ArtistName="AC/DC", ArtistId=1, etc.) are correctly resolved
-				// from {~D:Record.X~} templates. The projection store upsert
-				// pipeline in retold-facto is a separate concern.
+				// Verify track field values are populated
+				let tmpFirstTrack = tmpTrackRecords[0];
+				libAssert.ok(tmpFirstTrack.TrackName && tmpFirstTrack.TrackName.length > 0,
+					`Track TrackName should be populated, got "${tmpFirstTrack.TrackName}"`);
+				libAssert.ok(tmpFirstTrack.TrackId && Number(tmpFirstTrack.TrackId) > 0,
+					`Track TrackId should be populated, got ${tmpFirstTrack.TrackId}`);
+				libAssert.ok(tmpFirstTrack.Milliseconds && Number(tmpFirstTrack.Milliseconds) > 0,
+					`Track Milliseconds should be populated, got ${tmpFirstTrack.Milliseconds}`);
+
+				console.log(`      Projected records: ${tmpRecords.length} total (${tmpArtistRecords.length} artists, ${tmpTrackRecords.length} tracks)`);
+				console.log(`      Sample artist: ArtistName="${tmpFirstArtist.ArtistName}", ArtistId=${tmpFirstArtist.ArtistId}`);
+				console.log(`      Sample track: TrackName="${tmpFirstTrack.TrackName}", TrackId=${tmpFirstTrack.TrackId}, Milliseconds=${tmpFirstTrack.Milliseconds}`);
 			}
 		);
 

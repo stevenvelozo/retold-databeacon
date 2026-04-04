@@ -82,7 +82,7 @@
 		"pict-router": "^1.0.9",
 		"pict-section-modal": "^0.0.1",
 		"pict-view": "^1.0.67",
-		"retold-facto": "file:../retold-facto",
+		"retold-facto": "^0.1.0",
 		"ultravisor-beacon": "^0.0.8"
 	},
 	"optionalDependencies": {
