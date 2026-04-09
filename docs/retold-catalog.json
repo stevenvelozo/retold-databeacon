@@ -1,8 +1,25 @@
 {
-	"Generated": "2026-04-03T14:05:24.310Z",
+	"Generated": "2026-04-09T23:24:34.556Z",
 	"GitHubOrg": "stevenvelozo",
 	"DefaultBranch": "master",
 	"Groups": [
+		{
+			"Name": "Data",
+			"Key": "data",
+			"Description": "",
+			"Modules": [
+				{
+					"Name": "staging",
+					"Repo": "staging",
+					"Group": "data",
+					"Branch": "master",
+					"HasDocs": false,
+					"HasCover": false,
+					"Sidebar": [],
+					"DocFiles": []
+				}
+			]
+		},
 		{
 			"Name": "Dist",
 			"Key": "dist",
@@ -99,6 +116,16 @@
 				{
 					"Name": "docker-init",
 					"Repo": "docker-init",
+					"Group": "test",
+					"Branch": "master",
+					"HasDocs": false,
+					"HasCover": false,
+					"Sidebar": [],
+					"DocFiles": []
+				},
+				{
+					"Name": "docker-init-pg",
+					"Repo": "docker-init-pg",
 					"Group": "test",
 					"Branch": "master",
 					"HasDocs": false,
