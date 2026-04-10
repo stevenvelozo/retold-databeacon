@@ -1,4 +1,4 @@
-# Retold DataBeacon <small>0.0.1</small>
+# Retold DataBeacon
 
 > A deployable data beacon for connecting to remote databases, introspecting schemas, generating REST endpoints, and exposing capabilities to the Ultravisor mesh
 
