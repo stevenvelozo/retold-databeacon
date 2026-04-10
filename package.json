@@ -60,7 +60,7 @@
 	"homepage": "https://github.com/stevenvelozo/retold-databeacon",
 	"devDependencies": {
 		"puppeteer": "^24.40.0",
-		"quackage": "^1.0.65",
+		"quackage": "^1.1.0",
 		"stricture": "^4.0.2",
 		"supertest": "^7.2.2"
 	},
