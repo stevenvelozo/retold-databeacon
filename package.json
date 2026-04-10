@@ -59,6 +59,7 @@
 	},
 	"homepage": "https://github.com/stevenvelozo/retold-databeacon",
 	"devDependencies": {
+		"pict-docuserve": "^0.1.5",
 		"puppeteer": "^24.40.0",
 		"quackage": "^1.1.0",
 		"stricture": "^4.0.2",

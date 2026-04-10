@@ -1,0 +1,7 @@
+{
+	"Name": "retold-databeacon",
+	"Version": "0.0.1",
+	"Description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
+	"GeneratedAt": "2026-04-10T17:27:50.181Z",
+	"GitCommit": "020590a"
+}
