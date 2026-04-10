@@ -6,17 +6,23 @@ This is the most advanced workflow, combining all three services in the Ultravis
 
 ## Architecture
 
-```
-Remote Network                          Your Network
-┌─────────────────────┐                 ┌──────────────────────────────┐
-│  PostgreSQL DB      │                 │  Ultravisor Coordinator      │
-│  MySQL DB           │                 │  Retold Facto (port 8420)    │
-│                     │                 │  Target MySQL (projections)  │
-│  DataBeacon (8389)──┼──── WAN/VPN ───┤                              │
-│    ├ Connections     │                 │                              │
-│    ├ Introspection   │                 │                              │
-│    └ Dynamic APIs    │                 │                              │
-└─────────────────────┘                 └──────────────────────────────┘
+```mermaid
+graph LR
+    subgraph Remote["Remote Network"]
+        PG["PostgreSQL DB"]
+        MY["MySQL DB"]
+        DB["DataBeacon :8389"]
+        DB --- PG
+        DB --- MY
+    end
+    subgraph Local["Your Network"]
+        UV["Ultravisor Coordinator"]
+        FA["Retold Facto :8420"]
+        TM["Target MySQL<br/>(projections)"]
+    end
+    DB -- "WAN / VPN" --> UV
+    UV --- FA
+    FA --- TM
 ```
 
 ## Prerequisites
