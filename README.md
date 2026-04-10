@@ -117,8 +117,8 @@ DataBeacon accepts configuration via CLI flags, a JSON config file, or environme
 |--------|----------|---------|-------------|
 | Port | `--port`, `-p` | `8389` | HTTP server port |
 | Database Path | `--db`, `-d` | `./data/databeacon.sqlite` | SQLite file path |
-| Config File | `--config`, `-c` | — | Path to JSON config file |
-| Log File | `--log`, `-l` | — | Write logs to file |
+| Config File | `--config`, `-c` | -- | Path to JSON config file |
+| Log File | `--log`, `-l` | -- | Write logs to file |
 
 Environment variable: `PORT` overrides the default port.
 

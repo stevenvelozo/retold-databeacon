@@ -25,12 +25,12 @@ Expected output:
 
 ```
   Retold DataBeacon
-    ✔ Service should be initialized
-    ✔ Schema should have been created
-    ✔ DAL entities should be initialized
-    ✔ GET /beacon/connections should return empty list
+    [x] Service should be initialized
+    [x] Schema should have been created
+    [x] DAL entities should be initialized
+    [x] GET /beacon/connections should return empty list
     ...
-    ✔ DELETE /beacon/connection/1 should soft-delete
+    [x] DELETE /beacon/connection/1 should soft-delete
 
   19 passing (60ms)
 ```
