@@ -24,6 +24,11 @@ test/screenshots/
 .gulpfile-quackage.js
 .gulpfile-quackage-config.json
 
+# Docker build artifacts produced by scripts/docker-package.sh
+dist/docker/
+*.docker.tar
+*.docker.tar.gz
+
 # I just dislike this one.
 .DS_Store
 

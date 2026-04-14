@@ -1,6 +1,6 @@
 {
 	"name": "retold-databeacon",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
 	"main": "source/Retold-DataBeacon.js",
 	"bin": {
@@ -16,6 +16,8 @@
 		"docker-run": "docker run -p 8389:8389 -v $(pwd)/data:/app/data retold-databeacon",
 		"docker-up": "docker compose up -d --build",
 		"docker-down": "docker compose down",
+		"docker-package": "bash scripts/docker-package.sh",
+		"docker-package-fast": "bash scripts/docker-package.sh --skip-build",
 		"docker-test-up": "docker compose -f test/docker-compose.yml up -d",
 		"docker-test-down": "docker compose -f test/docker-compose.yml down",
 		"dev": "node test/dev-server.js",
