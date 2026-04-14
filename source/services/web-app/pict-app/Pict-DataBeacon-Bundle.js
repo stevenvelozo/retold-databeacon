@@ -16,6 +16,8 @@ let libDataBeaconApplication = require('./Pict-Application-DataBeacon.js');
 let libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
 let libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
 let libDataBeaconThemeProvider = require('./providers/Pict-Provider-DataBeacon-Theme.js');
+let libDataBeaconExportProvider = require('./providers/Pict-Provider-DataBeacon-Export.js');
+let libDataBeaconSavedQueriesProvider = require('./providers/Pict-Provider-DataBeacon-SavedQueries.js');
 
 // Views — Layout + page/container views
 let libViewLayout = require('./views/PictView-DataBeacon-Layout.js');
@@ -34,6 +36,7 @@ let libViewIntrospectionTables = require('./views/PictView-DataBeacon-Introspect
 let libViewRecordBrowser = require('./views/PictView-DataBeacon-RecordBrowser.js');
 let libViewQueryPanel = require('./views/PictView-DataBeacon-QueryPanel.js');
 let libViewThemeSwitcher = require('./views/PictView-DataBeacon-ThemeSwitcher.js');
+let libViewSavedQueriesList = require('./views/PictView-DataBeacon-SavedQueriesList.js');
 
 // Expose the application class on window for Pict.safeLoadPictApplication
 window.DataBeaconApplication = libDataBeaconApplication;

@@ -23,6 +23,8 @@ const _ViewConfiguration =
 		.databeacon-records-start-input { width: 100px; }
 		.databeacon-records-pagesize-select { width: 90px; }
 		.databeacon-records-range { margin-top: 8px; color: var(--text-muted); font-size: 12px; }
+		.databeacon-export-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+		.databeacon-export-bar .databeacon-export-label { color: var(--text-muted); font-size: 12px; margin-right: 4px; }
 	`,
 
 	Templates:
@@ -71,6 +73,26 @@ const _ViewConfiguration =
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Empty:AppData.RecordBrowser:AppData.RecordBrowser.State^==^Empty~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-NoSelection:AppData.RecordBrowser:AppData.RecordBrowser.State^==^NoSelection~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Table:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
+	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-ExportBar:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
+</div>`
+		},
+		{
+			Hash: 'DataBeacon-RecordBrowser-ExportBar',
+			Template: /*html*/`
+<div class="databeacon-export-bar">
+	<span class="databeacon-export-label">Export current page:</span>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
+	</button>
 </div>`
 		},
 		{
@@ -149,7 +171,7 @@ class PictViewDataBeaconRecordBrowser extends libPictView
 			{
 				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
 				if (!tmpBtn || tmpBtn.tagName !== 'BUTTON') return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
+				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
 			});
 			tmpRoot.addEventListener('change', (pEvent) =>
 			{
@@ -176,7 +198,7 @@ class PictViewDataBeaconRecordBrowser extends libPictView
 		if (tmpNext && tmpNext.length > 0) tmpNext[0].disabled = !!tmpBrowser.NextDisabled;
 	}
 
-	_handleAction(pAction)
+	_handleAction(pAction, pData)
 	{
 		let tmpProvider = this.pict.providers.DataBeaconProvider;
 		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
@@ -199,7 +221,79 @@ class PictViewDataBeaconRecordBrowser extends libPictView
 				this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
 				tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
 				break;
+			case 'export':
+				this._export(pData && pData.exportFormat, tmpTable, tmpStart, tmpSize);
+				break;
 		}
+	}
+
+	_export(pFormat, pTable, pStart, pSize)
+	{
+		let tmpExport = this.pict.providers['DataBeacon-Export'];
+		if (!tmpExport) return;
+		let tmpRows = Array.isArray(this.pict.AppData.Records) ? this.pict.AppData.Records : [];
+		if (tmpRows.length === 0) return;
+
+		let tmpEntity = pTable || 'Record';
+		let tmpKeyField = this._findGUIDField(tmpEntity, tmpRows);
+		let tmpBase = `${tmpEntity}-${pStart}-${pStart + tmpRows.length - 1}`;
+		tmpExport.exportRows(pFormat, tmpRows,
+		{
+			BaseName: tmpBase,
+			EntityName: tmpEntity,
+			KeyField: tmpKeyField
+		});
+	}
+
+	/**
+	 * Resolve the Comprehension key column for the selected table.
+	 *
+	 * Meadow's Comprehension format keys records by a GUID column, not the
+	 * numeric primary key. The default GUIDName is `GUID${Entity}` (e.g.
+	 * `GUIDUser` for the `User` entity). We try, in order:
+	 *   1) Exact match `GUID${Entity}` on the first row.
+	 *   2) Exact match `GUID${Entity}` in the introspected column list.
+	 *   3) Any column whose name starts with `GUID[A-Z]` in the first row.
+	 *   4) null — the exporter then falls back to 1-based row index.
+	 */
+	_findGUIDField(pEntityName, pRows)
+	{
+		let tmpFirstRow = (pRows && pRows.length > 0 && typeof pRows[0] === 'object' && pRows[0] !== null) ? pRows[0] : null;
+
+		if (pEntityName && tmpFirstRow)
+		{
+			let tmpExpected = `GUID${pEntityName}`;
+			if (Object.prototype.hasOwnProperty.call(tmpFirstRow, tmpExpected))
+			{
+				return tmpExpected;
+			}
+		}
+
+		if (pEntityName)
+		{
+			let tmpTables = this.pict.AppData.Tables || [];
+			let tmpExpected = `GUID${pEntityName}`;
+			for (let i = 0; i < tmpTables.length; i++)
+			{
+				if (tmpTables[i].TableName !== pEntityName) continue;
+				let tmpColumns = tmpTables[i].Columns || [];
+				for (let c = 0; c < tmpColumns.length; c++)
+				{
+					if (tmpColumns[c].Name === tmpExpected) return tmpExpected;
+				}
+				break;
+			}
+		}
+
+		if (tmpFirstRow)
+		{
+			let tmpKeys = Object.keys(tmpFirstRow);
+			for (let k = 0; k < tmpKeys.length; k++)
+			{
+				if (/^GUID[A-Z]/.test(tmpKeys[k])) return tmpKeys[k];
+			}
+		}
+		return null;
 	}
 
 	_handleChange(pAction, pRawValue)

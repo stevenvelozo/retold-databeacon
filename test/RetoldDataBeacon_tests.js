@@ -414,6 +414,117 @@ suite
 
 		test
 		(
+			'POST /beacon/endpoint/1/User/enable should wire dynamic User CRUD routes',
+			function (fDone)
+			{
+				libSuperTest(_Server)
+					.post('/beacon/endpoint/1/User/enable')
+					.expect(200)
+					.end(function (pError, pResponse)
+					{
+						if (pError) return fDone(pError);
+						libAssert.ok(pResponse.body.Success, 'Should succeed: ' + JSON.stringify(pResponse.body));
+						libAssert.ok(pResponse.body.Endpoint, 'Should return endpoint detail');
+
+						// Hit the dynamically-registered route to confirm it's live.
+						libSuperTest(_Server)
+							.get('/1.0/Users/0/50')
+							.expect(200)
+							.end(function (pListError, pListResponse)
+							{
+								if (pListError) return fDone(pListError);
+								libAssert.ok(Array.isArray(pListResponse.body), 'User list endpoint should respond with an array');
+								return fDone();
+							});
+					});
+			}
+		);
+
+		test
+		(
+			'disconnect + reconnect should restore enabled endpoints automatically',
+			function (fDone)
+			{
+				this.timeout(10000);
+
+				// Tear down the live connection; the /1.0/Users route is still
+				// physically registered in Restify (it can't be removed), but
+				// the in-memory handle should be cleared.
+				libSuperTest(_Server)
+					.post('/beacon/connection/1/disconnect')
+					.expect(200)
+					.end(function (pDisconnectError, pDisconnectResponse)
+					{
+						if (pDisconnectError) return fDone(pDisconnectError);
+						libAssert.ok(pDisconnectResponse.body.Success, 'Disconnect should succeed');
+
+						// listEndpoints() should no longer advertise the User endpoint.
+						libSuperTest(_Server)
+							.get('/beacon/endpoints')
+							.expect(200)
+							.end(function (pListError, pListResponse)
+							{
+								if (pListError) return fDone(pListError);
+								libAssert.strictEqual(pListResponse.body.Count, 0, 'Endpoints list should be empty while disconnected');
+
+								// Reconnect and check the response advertises how
+								// many endpoints were restored (the bug fix).
+								libSuperTest(_Server)
+									.post('/beacon/connection/1/connect')
+									.expect(200)
+									.end(function (pConnectError, pConnectResponse)
+									{
+										if (pConnectError) return fDone(pConnectError);
+										libAssert.ok(pConnectResponse.body.Success, 'Reconnect should succeed');
+										libAssert.ok(pConnectResponse.body.EndpointsRestored >= 1,
+											'Reconnect should restore at least one endpoint; got: ' + JSON.stringify(pConnectResponse.body));
+
+										// The /1.0/Users/0/50 endpoint should work WITHOUT the
+										// user toggling it off and back on — this is the exact
+										// regression this test guards.
+										libSuperTest(_Server)
+											.get('/1.0/Users/0/50')
+											.expect(200)
+											.end(function (pUsersError, pUsersResponse)
+											{
+												if (pUsersError) return fDone(pUsersError);
+												libAssert.ok(Array.isArray(pUsersResponse.body), 'User endpoint should work after reconnect with no manual toggle');
+												return fDone();
+											});
+									});
+							});
+					});
+			}
+		);
+
+		test
+		(
+			'POST /beacon/endpoint/1/User/disable should tear the endpoint back down',
+			function (fDone)
+			{
+				libSuperTest(_Server)
+					.post('/beacon/endpoint/1/User/disable')
+					.expect(200)
+					.end(function (pError, pResponse)
+					{
+						if (pError) return fDone(pError);
+						libAssert.ok(pResponse.body.Success, 'Should succeed: ' + JSON.stringify(pResponse.body));
+
+						libSuperTest(_Server)
+							.get('/beacon/endpoints')
+							.expect(200)
+							.end(function (pListError, pListResponse)
+							{
+								if (pListError) return fDone(pListError);
+								libAssert.strictEqual(pListResponse.body.Count, 0, 'Endpoints list should be empty after disable');
+								return fDone();
+							});
+					});
+			}
+		);
+
+		test
+		(
 			'GET /beacon/connection/available-types should list installed types',
 			function (fDone)
 			{

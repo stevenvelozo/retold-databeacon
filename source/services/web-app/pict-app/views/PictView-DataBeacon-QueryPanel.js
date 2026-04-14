@@ -49,6 +49,8 @@ const _ViewConfiguration =
 		#DataBeacon-QueryPanel-Editor .comment { color: var(--text-muted); font-style: italic; }
 		#DataBeacon-QueryPanel-Editor .operator { color: var(--accent-info); }
 		#DataBeacon-QueryPanel-Editor .function-name { color: var(--accent-info); }
+		#DataBeacon-QueryPanel-Root .databeacon-export-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+		#DataBeacon-QueryPanel-Root .databeacon-export-bar .databeacon-export-label { color: var(--text-muted); font-size: 12px; margin-right: 4px; }
 	`,
 
 	Templates:
@@ -67,6 +69,10 @@ const _ViewConfiguration =
 			<span data-databeacon-icon="play" data-icon-size="16"></span>
 			Execute
 		</button>
+		<button class="btn btn-secondary" data-databeacon-action="save-query">
+			<span data-databeacon-icon="save" data-icon-size="16"></span>
+			Save…
+		</button>
 	</div>
 	<div id="DataBeacon-QueryPanel-Results"></div>
 </div>`
@@ -80,7 +86,27 @@ const _ViewConfiguration =
 		<tbody>{~TS:DataBeacon-QueryPanel-Row:AppData.QueryPanel.Rows~}</tbody>
 	</table>
 </div>
-{~TemplateIfAbsolute:DataBeacon-QueryPanel-TruncationNote:AppData.QueryPanel:AppData.QueryPanel.IsTruncated^TRUE^x~}`
+{~TemplateIfAbsolute:DataBeacon-QueryPanel-TruncationNote:AppData.QueryPanel:AppData.QueryPanel.IsTruncated^TRUE^x~}
+{~Template:DataBeacon-QueryPanel-ExportBar:~}`
+		},
+		{
+			Hash: 'DataBeacon-QueryPanel-ExportBar',
+			Template: /*html*/`
+<div class="databeacon-export-bar">
+	<span class="databeacon-export-label">Export result:</span>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
+	</button>
+</div>`
 		},
 		{
 			Hash: 'DataBeacon-QueryPanel-HeaderCell',
@@ -139,7 +165,7 @@ class PictViewDataBeaconQueryPanel extends libPictView
 			{
 				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
 				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
+				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
 			});
 		}
 
@@ -275,9 +301,55 @@ class PictViewDataBeaconQueryPanel extends libPictView
 	}
 
 
-	_handleAction(pAction)
+	_handleAction(pAction, pData)
 	{
 		if (pAction === 'execute') this._execute();
+		else if (pAction === 'export') this._export(pData && pData.exportFormat);
+		else if (pAction === 'save-query') this._openSaveModal();
+	}
+
+	_openSaveModal()
+	{
+		let tmpList = this.pict.views.SavedQueriesList;
+		let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+		if (!tmpList || !tmpProvider) return;
+		let tmpSQL = this._readSQL();
+		let tmpActiveGUID = tmpProvider.getActiveGUID();
+		tmpList.openSaveFormModal(
+		{
+			GUID: tmpActiveGUID,
+			SQL: tmpSQL,
+			EditMetadataOnly: false
+		});
+	}
+
+	_export(pFormat)
+	{
+		let tmpExport = this.pict.providers['DataBeacon-Export'];
+		if (!tmpExport) return;
+		let tmpQP = this.pict.AppData.QueryPanel || {};
+		let tmpRows = Array.isArray(tmpQP.RawRows) ? tmpQP.RawRows : [];
+		if (tmpRows.length === 0) return;
+
+		// Query results have no table-of-origin — autodetect a Comprehension
+		// key by looking for Meadow's GUID${Entity} convention. Any column
+		// whose name starts with "GUID" wins; otherwise fall through to the
+		// exporter's 1-based row-index fallback.
+		let tmpKeyField = null;
+		if (tmpRows[0] && typeof tmpRows[0] === 'object')
+		{
+			let tmpKeys = Object.keys(tmpRows[0]);
+			for (let k = 0; k < tmpKeys.length; k++)
+			{
+				if (/^GUID[A-Z]/.test(tmpKeys[k])) { tmpKeyField = tmpKeys[k]; break; }
+			}
+		}
+		tmpExport.exportRows(pFormat, tmpRows,
+		{
+			BaseName: 'query-result',
+			EntityName: 'QueryResult',
+			KeyField: tmpKeyField
+		});
 	}
 
 	_readSQL()
@@ -338,6 +410,20 @@ class PictViewDataBeaconQueryPanel extends libPictView
 				tmpProvider.buildQueryResultViewData(tmpRows));
 			let tmpHTML = this.pict.parseTemplateByHash('DataBeacon-QueryPanel-ResultsTable', null);
 			this.pict.ContentAssignment.assignContent(tmpResultsSelector, tmpHTML);
+			// The results fragment contains fresh data-databeacon-icon
+			// placeholders (export-bar buttons) — fill them in now since
+			// the view's initial icon pass ran before these elements existed.
+			let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+			if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-QueryPanel-Root');
+
+			// If a saved query is currently loaded, record this successful
+			// execution on it (timestamp + row count).
+			let tmpSavedProvider = this.pict.providers['DataBeacon-SavedQueries'];
+			if (tmpSavedProvider)
+			{
+				let tmpGUID = tmpSavedProvider.getActiveGUID();
+				if (tmpGUID) tmpSavedProvider.noteRun(tmpGUID, tmpRows.length);
+			}
 		});
 	}
 }

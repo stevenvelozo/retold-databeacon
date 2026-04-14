@@ -33,6 +33,15 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 		// Per-connection Meadow instances for provider isolation
 		// Key: connectionId, Value: Meadow instance
 		this._ConnectionMeadows = {};
+
+		// Sticky set of table keys whose Restify routes have been physically
+		// registered at least once since this process started. Restify /
+		// find-my-way throws on duplicate registrations, so enableEndpoint
+		// skips connectRoutes() when the key is already present here and
+		// relies on the earlier route handler picking up the refreshed
+		// `this.fable.Meadow{Type}Provider` binding at query time.
+		// Key: "connectionId-tableName", Value: true
+		this._RegisteredRouteKeys = {};
 	}
 
 	/**
@@ -228,8 +237,20 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 							// Create meadow-endpoints
 							let tmpEndpoints = libMeadowEndpoints.new(tmpDAL);
 
-							// Connect routes - this creates /1.0/{TableName} CRUD endpoints
-							tmpEndpoints.connectRoutes(this.fable.OratorServiceServer);
+							// Restify can't unregister routes, so only call
+							// connectRoutes() the first time we wire this
+							// connection+table key. On subsequent enables
+							// (post-disconnect/reconnect) the original route
+							// handler is still live; we rely on it resolving
+							// `this.fable.Meadow{Type}Provider` (which we just
+							// refreshed above) at query time, so traffic hits
+							// the fresh live connection with no duplicate route
+							// registration.
+							if (!this._RegisteredRouteKeys[tmpKey])
+							{
+								tmpEndpoints.connectRoutes(this.fable.OratorServiceServer);
+								this._RegisteredRouteKeys[tmpKey] = true;
+							}
 
 							// Track the enabled endpoint
 							this._EnabledEndpoints[tmpKey] =
@@ -389,6 +410,121 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 
 				tmpAnticipate.wait(fCallback);
 			});
+	}
+
+	/**
+	 * Restore all persisted dynamic endpoints for a single connection that
+	 * just reconnected. Invoked from ConnectionBridge's /connect handler so
+	 * that tables flagged `EndpointsEnabled = 1` in the config DB have their
+	 * Restify routes re-wired without the user having to toggle them off
+	 * and back on. Mirrors warmUpEndpoints but scoped to one connection.
+	 *
+	 * @param {number} pIDBeaconConnection
+	 * @param {function(Error?, {Restored:number}?)} fCallback
+	 */
+	restoreEnabledEndpointsForConnection(pIDBeaconConnection, fCallback)
+	{
+		let tmpCallback = (typeof fCallback === 'function') ? fCallback : () => {};
+		if (!this.fable.DAL || !this.fable.DAL.IntrospectedTable)
+		{
+			return tmpCallback(null, { Restored: 0 });
+		}
+		if (pIDBeaconConnection === null || pIDBeaconConnection === undefined)
+		{
+			return tmpCallback(null, { Restored: 0 });
+		}
+
+		let tmpQuery = this.fable.DAL.IntrospectedTable.query.clone()
+			.addFilter('IDBeaconConnection', pIDBeaconConnection)
+			.addFilter('EndpointsEnabled', 1)
+			.addFilter('Deleted', 0);
+
+		this.fable.DAL.IntrospectedTable.doReads(tmpQuery,
+			(pError, pQuery, pRecords) =>
+			{
+				if (pError)
+				{
+					this.fable.log.warn(`DataBeacon: Endpoint restore query failed for connection #${pIDBeaconConnection}: ${pError.message || pError}`);
+					return tmpCallback(pError, { Restored: 0 });
+				}
+				if (!pRecords || pRecords.length === 0)
+				{
+					return tmpCallback(null, { Restored: 0 });
+				}
+
+				this.fable.log.info(`DataBeacon: Restoring ${pRecords.length} endpoint(s) for connection #${pIDBeaconConnection}...`);
+
+				let tmpAnticipate = this.fable.newAnticipate();
+				let tmpRestoredCount = 0;
+
+				for (let i = 0; i < pRecords.length; i++)
+				{
+					let tmpRecord = pRecords[i];
+					tmpAnticipate.anticipate(
+						(fStepCallback) =>
+						{
+							this.enableEndpoint(pIDBeaconConnection, tmpRecord.TableName,
+								(pEnableError) =>
+								{
+									if (pEnableError)
+									{
+										this.fable.log.warn(`DataBeacon: Endpoint restore failed for ${tmpRecord.TableName}: ${pEnableError.message || pEnableError}`);
+									}
+									else
+									{
+										tmpRestoredCount++;
+									}
+									return fStepCallback();
+								});
+						});
+				}
+
+				tmpAnticipate.wait(
+					(pAnticipateError) =>
+					{
+						if (!pAnticipateError)
+						{
+							this.fable.log.info(`DataBeacon: Restored ${tmpRestoredCount}/${pRecords.length} endpoint(s) for connection #${pIDBeaconConnection}.`);
+						}
+						return tmpCallback(pAnticipateError || null, { Restored: tmpRestoredCount });
+					});
+			});
+	}
+
+	/**
+	 * Forget all in-memory endpoint handles for a connection. Called from
+	 * ConnectionBridge's /disconnect so `listEndpoints()` stops advertising
+	 * routes that point at a dead connection. The persisted
+	 * `EndpointsEnabled` flag is preserved so a subsequent reconnect can
+	 * reinstate them via `restoreEnabledEndpointsForConnection`.
+	 *
+	 * Note: Restify does not support route removal, so the physical route
+	 * handler stays registered — but without a live MeadowEndpoints
+	 * instance behind it, and with no entry in `_EnabledEndpoints`, any
+	 * hit will fail with a clear connection-not-live error and the
+	 * endpoints listing will be accurate.
+	 *
+	 * @param {number} pIDBeaconConnection
+	 */
+	clearInMemoryEndpointsForConnection(pIDBeaconConnection)
+	{
+		if (pIDBeaconConnection === null || pIDBeaconConnection === undefined) return 0;
+		let tmpKeys = Object.keys(this._EnabledEndpoints);
+		let tmpRemoved = 0;
+		for (let i = 0; i < tmpKeys.length; i++)
+		{
+			let tmpEntry = this._EnabledEndpoints[tmpKeys[i]];
+			if (tmpEntry && tmpEntry.connectionId === pIDBeaconConnection)
+			{
+				delete this._EnabledEndpoints[tmpKeys[i]];
+				tmpRemoved++;
+			}
+		}
+		if (tmpRemoved > 0)
+		{
+			this.fable.log.info(`DataBeacon: Cleared ${tmpRemoved} in-memory endpoint handle(s) for connection #${pIDBeaconConnection}.`);
+		}
+		return tmpRemoved;
 	}
 
 	// ================================================================

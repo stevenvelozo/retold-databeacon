@@ -12,6 +12,8 @@ const libPictSectionCode = require('pict-section-code');
 const libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
 const libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
 const libDataBeaconThemeProvider = require('./providers/Pict-Provider-DataBeacon-Theme.js');
+const libDataBeaconExportProvider = require('./providers/Pict-Provider-DataBeacon-Export.js');
+const libDataBeaconSavedQueriesProvider = require('./providers/Pict-Provider-DataBeacon-SavedQueries.js');
 
 // Page / container views
 const libViewLayout = require('./views/PictView-DataBeacon-Layout.js');
@@ -30,6 +32,7 @@ const libViewIntrospectionTables = require('./views/PictView-DataBeacon-Introspe
 const libViewRecordBrowser = require('./views/PictView-DataBeacon-RecordBrowser.js');
 const libViewQueryPanel = require('./views/PictView-DataBeacon-QueryPanel.js');
 const libViewThemeSwitcher = require('./views/PictView-DataBeacon-ThemeSwitcher.js');
+const libViewSavedQueriesList = require('./views/PictView-DataBeacon-SavedQueriesList.js');
 
 class DataBeaconApplication extends libPictApplication
 {
@@ -44,6 +47,8 @@ class DataBeaconApplication extends libPictApplication
 		this.pict.addProvider('DataBeacon-Theme', libDataBeaconThemeProvider.default_configuration, libDataBeaconThemeProvider);
 		this.pict.addProvider('DataBeaconProvider', libDataBeaconProvider.default_configuration, libDataBeaconProvider);
 		this.pict.addProvider('DataBeacon-Icons', libDataBeaconIconsProvider.default_configuration, libDataBeaconIconsProvider);
+		this.pict.addProvider('DataBeacon-Export', libDataBeaconExportProvider.default_configuration, libDataBeaconExportProvider);
+		this.pict.addProvider('DataBeacon-SavedQueries', libDataBeaconSavedQueriesProvider.default_configuration, libDataBeaconSavedQueriesProvider);
 
 		// Shell + page views
 		this.pict.addView('Layout', libViewLayout.default_configuration, libViewLayout);
@@ -62,6 +67,7 @@ class DataBeaconApplication extends libPictApplication
 		this.pict.addView('RecordBrowser', libViewRecordBrowser.default_configuration, libViewRecordBrowser);
 		this.pict.addView('QueryPanel', libViewQueryPanel.default_configuration, libViewQueryPanel);
 		this.pict.addView('ThemeSwitcher', libViewThemeSwitcher.default_configuration, libViewThemeSwitcher);
+		this.pict.addView('SavedQueriesList', libViewSavedQueriesList.default_configuration, libViewSavedQueriesList);
 
 		// SQL code editor (pict-section-code + CodeJar) — registered separately so the
 		// QueryPanel view can mount it into its editor slot each time it renders.

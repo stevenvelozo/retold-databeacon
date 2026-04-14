@@ -593,11 +593,33 @@ class DataBeaconConnectionBridge extends libFableServiceProviderBase
 										if (pConnError)
 										{
 											pResponse.send({ Success: false, Error: pConnError.message || pConnError });
+											return fNext();
 										}
-										else
+
+										// Re-wire any dynamic endpoints that were flagged
+										// EndpointsEnabled=1 in the config DB. Without this,
+										// a cold-start + manual Connect would leave the
+										// Introspection view showing endpoints as "Active"
+										// while the actual Restify routes are missing until
+										// the user toggles the endpoint off and on again.
+										let tmpEndpointManager = this.fable.DataBeaconDynamicEndpointManager;
+										if (tmpEndpointManager && typeof tmpEndpointManager.restoreEnabledEndpointsForConnection === 'function')
 										{
-											pResponse.send({ Success: true, Status: 'Connected' });
+											tmpEndpointManager.restoreEnabledEndpointsForConnection(pExisting.IDBeaconConnection,
+												(pRestoreError, pRestoreResult) =>
+												{
+													pResponse.send(
+													{
+														Success: true,
+														Status: 'Connected',
+														EndpointsRestored: (pRestoreResult && typeof pRestoreResult.Restored === 'number') ? pRestoreResult.Restored : 0
+													});
+													return fNext();
+												});
+											return;
 										}
+
+										pResponse.send({ Success: true, Status: 'Connected', EndpointsRestored: 0 });
 										return fNext();
 									});
 							});
@@ -615,6 +637,17 @@ class DataBeaconConnectionBridge extends libFableServiceProviderBase
 					(pError) =>
 					{
 						delete this._LiveConnections[tmpConnName];
+
+						// Drop in-memory endpoint handles for this connection so
+						// listEndpoints() stops advertising routes that point at
+						// a now-dead MeadowEndpoints instance. The persisted
+						// EndpointsEnabled flag is untouched — a subsequent
+						// /connect will restore those routes automatically.
+						let tmpEndpointManager = this.fable.DataBeaconDynamicEndpointManager;
+						if (tmpEndpointManager && typeof tmpEndpointManager.clearInMemoryEndpointsForConnection === 'function')
+						{
+							tmpEndpointManager.clearInMemoryEndpointsForConnection(tmpID);
+						}
 
 						if (pError)
 						{

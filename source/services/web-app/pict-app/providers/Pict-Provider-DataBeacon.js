@@ -547,6 +547,11 @@ class DataBeaconProvider extends libPictProvider
 		return {
 			ColumnList: tmpColumnList,
 			Rows: tmpRowList,
+			// RawRows keeps the unformatted response so the export provider
+			// can serialize to JSON/CSV/TSV without having to reverse the
+			// cell-HTML formatting. Limited to the same display window the
+			// user actually sees.
+			RawRows: pRows.slice(0, tmpLimit),
 			DisplayCount: tmpLimit,
 			TotalCount: pRows.length,
 			IsTruncated: pRows.length > 100

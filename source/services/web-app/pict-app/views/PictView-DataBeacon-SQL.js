@@ -20,6 +20,7 @@ const _ViewConfiguration =
 			Template: /*html*/`
 <div class="sql-view">
 	<h1>SQL Query</h1>
+	<div id="DataBeacon-SavedQueries-Slot"></div>
 	<div id="DataBeacon-QueryPanel-Slot"></div>
 </div>`
 		}
@@ -45,6 +46,7 @@ class PictViewDataBeaconSQL extends libPictView
 
 	onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent)
 	{
+		if (this.pict.views.SavedQueriesList) this.pict.views.SavedQueriesList.render();
 		if (this.pict.views.QueryPanel) this.pict.views.QueryPanel.render();
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}

@@ -6457,6 +6457,8 @@
       const libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
       const libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
       const libDataBeaconThemeProvider = require('./providers/Pict-Provider-DataBeacon-Theme.js');
+      const libDataBeaconExportProvider = require('./providers/Pict-Provider-DataBeacon-Export.js');
+      const libDataBeaconSavedQueriesProvider = require('./providers/Pict-Provider-DataBeacon-SavedQueries.js');
 
       // Page / container views
       const libViewLayout = require('./views/PictView-DataBeacon-Layout.js');
@@ -6475,6 +6477,7 @@
       const libViewRecordBrowser = require('./views/PictView-DataBeacon-RecordBrowser.js');
       const libViewQueryPanel = require('./views/PictView-DataBeacon-QueryPanel.js');
       const libViewThemeSwitcher = require('./views/PictView-DataBeacon-ThemeSwitcher.js');
+      const libViewSavedQueriesList = require('./views/PictView-DataBeacon-SavedQueriesList.js');
       class DataBeaconApplication extends libPictApplication {
         constructor(pFable, pOptions, pServiceHash) {
           super(pFable, pOptions, pServiceHash);
@@ -6485,6 +6488,8 @@
           this.pict.addProvider('DataBeacon-Theme', libDataBeaconThemeProvider.default_configuration, libDataBeaconThemeProvider);
           this.pict.addProvider('DataBeaconProvider', libDataBeaconProvider.default_configuration, libDataBeaconProvider);
           this.pict.addProvider('DataBeacon-Icons', libDataBeaconIconsProvider.default_configuration, libDataBeaconIconsProvider);
+          this.pict.addProvider('DataBeacon-Export', libDataBeaconExportProvider.default_configuration, libDataBeaconExportProvider);
+          this.pict.addProvider('DataBeacon-SavedQueries', libDataBeaconSavedQueriesProvider.default_configuration, libDataBeaconSavedQueriesProvider);
 
           // Shell + page views
           this.pict.addView('Layout', libViewLayout.default_configuration, libViewLayout);
@@ -6503,6 +6508,7 @@
           this.pict.addView('RecordBrowser', libViewRecordBrowser.default_configuration, libViewRecordBrowser);
           this.pict.addView('QueryPanel', libViewQueryPanel.default_configuration, libViewQueryPanel);
           this.pict.addView('ThemeSwitcher', libViewThemeSwitcher.default_configuration, libViewThemeSwitcher);
+          this.pict.addView('SavedQueriesList', libViewSavedQueriesList.default_configuration, libViewSavedQueriesList);
 
           // SQL code editor (pict-section-code + CodeJar) — registered separately so the
           // QueryPanel view can mount it into its editor slot each time it renders.
@@ -6613,23 +6619,26 @@
       module.exports = DataBeaconApplication;
       module.exports.default_configuration = {};
     }, {
-      "./providers/Pict-Provider-DataBeacon-Icons.js": 24,
-      "./providers/Pict-Provider-DataBeacon-Theme.js": 26,
-      "./providers/Pict-Provider-DataBeacon.js": 27,
-      "./views/PictView-DataBeacon-ConnectionForm.js": 28,
-      "./views/PictView-DataBeacon-ConnectionList.js": 29,
-      "./views/PictView-DataBeacon-Connections.js": 30,
-      "./views/PictView-DataBeacon-Dashboard.js": 31,
-      "./views/PictView-DataBeacon-Endpoints.js": 32,
-      "./views/PictView-DataBeacon-Introspection.js": 33,
-      "./views/PictView-DataBeacon-IntrospectionControls.js": 34,
-      "./views/PictView-DataBeacon-IntrospectionTables.js": 35,
-      "./views/PictView-DataBeacon-Layout.js": 36,
-      "./views/PictView-DataBeacon-QueryPanel.js": 37,
-      "./views/PictView-DataBeacon-RecordBrowser.js": 38,
-      "./views/PictView-DataBeacon-Records.js": 39,
-      "./views/PictView-DataBeacon-SQL.js": 40,
-      "./views/PictView-DataBeacon-ThemeSwitcher.js": 41,
+      "./providers/Pict-Provider-DataBeacon-Export.js": 24,
+      "./providers/Pict-Provider-DataBeacon-Icons.js": 25,
+      "./providers/Pict-Provider-DataBeacon-SavedQueries.js": 26,
+      "./providers/Pict-Provider-DataBeacon-Theme.js": 28,
+      "./providers/Pict-Provider-DataBeacon.js": 29,
+      "./views/PictView-DataBeacon-ConnectionForm.js": 30,
+      "./views/PictView-DataBeacon-ConnectionList.js": 31,
+      "./views/PictView-DataBeacon-Connections.js": 32,
+      "./views/PictView-DataBeacon-Dashboard.js": 33,
+      "./views/PictView-DataBeacon-Endpoints.js": 34,
+      "./views/PictView-DataBeacon-Introspection.js": 35,
+      "./views/PictView-DataBeacon-IntrospectionControls.js": 36,
+      "./views/PictView-DataBeacon-IntrospectionTables.js": 37,
+      "./views/PictView-DataBeacon-Layout.js": 38,
+      "./views/PictView-DataBeacon-QueryPanel.js": 39,
+      "./views/PictView-DataBeacon-RecordBrowser.js": 40,
+      "./views/PictView-DataBeacon-Records.js": 41,
+      "./views/PictView-DataBeacon-SQL.js": 42,
+      "./views/PictView-DataBeacon-SavedQueriesList.js": 43,
+      "./views/PictView-DataBeacon-ThemeSwitcher.js": 44,
       "pict-application": 5,
       "pict-section-code": 11,
       "pict-section-modal": 19
@@ -6653,6 +6662,8 @@
       let libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
       let libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
       let libDataBeaconThemeProvider = require('./providers/Pict-Provider-DataBeacon-Theme.js');
+      let libDataBeaconExportProvider = require('./providers/Pict-Provider-DataBeacon-Export.js');
+      let libDataBeaconSavedQueriesProvider = require('./providers/Pict-Provider-DataBeacon-SavedQueries.js');
 
       // Views — Layout + page/container views
       let libViewLayout = require('./views/PictView-DataBeacon-Layout.js');
@@ -6671,34 +6682,259 @@
       let libViewRecordBrowser = require('./views/PictView-DataBeacon-RecordBrowser.js');
       let libViewQueryPanel = require('./views/PictView-DataBeacon-QueryPanel.js');
       let libViewThemeSwitcher = require('./views/PictView-DataBeacon-ThemeSwitcher.js');
+      let libViewSavedQueriesList = require('./views/PictView-DataBeacon-SavedQueriesList.js');
 
       // Expose the application class on window for Pict.safeLoadPictApplication
       window.DataBeaconApplication = libDataBeaconApplication;
     }, {
       "./Pict-Application-DataBeacon.js": 22,
-      "./providers/Pict-Provider-DataBeacon-Icons.js": 24,
-      "./providers/Pict-Provider-DataBeacon-Theme.js": 26,
-      "./providers/Pict-Provider-DataBeacon.js": 27,
-      "./views/PictView-DataBeacon-ConnectionForm.js": 28,
-      "./views/PictView-DataBeacon-ConnectionList.js": 29,
-      "./views/PictView-DataBeacon-Connections.js": 30,
-      "./views/PictView-DataBeacon-Dashboard.js": 31,
-      "./views/PictView-DataBeacon-Endpoints.js": 32,
-      "./views/PictView-DataBeacon-Introspection.js": 33,
-      "./views/PictView-DataBeacon-IntrospectionControls.js": 34,
-      "./views/PictView-DataBeacon-IntrospectionTables.js": 35,
-      "./views/PictView-DataBeacon-Layout.js": 36,
-      "./views/PictView-DataBeacon-QueryPanel.js": 37,
-      "./views/PictView-DataBeacon-RecordBrowser.js": 38,
-      "./views/PictView-DataBeacon-Records.js": 39,
-      "./views/PictView-DataBeacon-SQL.js": 40,
-      "./views/PictView-DataBeacon-ThemeSwitcher.js": 41,
+      "./providers/Pict-Provider-DataBeacon-Export.js": 24,
+      "./providers/Pict-Provider-DataBeacon-Icons.js": 25,
+      "./providers/Pict-Provider-DataBeacon-SavedQueries.js": 26,
+      "./providers/Pict-Provider-DataBeacon-Theme.js": 28,
+      "./providers/Pict-Provider-DataBeacon.js": 29,
+      "./views/PictView-DataBeacon-ConnectionForm.js": 30,
+      "./views/PictView-DataBeacon-ConnectionList.js": 31,
+      "./views/PictView-DataBeacon-Connections.js": 32,
+      "./views/PictView-DataBeacon-Dashboard.js": 33,
+      "./views/PictView-DataBeacon-Endpoints.js": 34,
+      "./views/PictView-DataBeacon-Introspection.js": 35,
+      "./views/PictView-DataBeacon-IntrospectionControls.js": 36,
+      "./views/PictView-DataBeacon-IntrospectionTables.js": 37,
+      "./views/PictView-DataBeacon-Layout.js": 38,
+      "./views/PictView-DataBeacon-QueryPanel.js": 39,
+      "./views/PictView-DataBeacon-RecordBrowser.js": 40,
+      "./views/PictView-DataBeacon-Records.js": 41,
+      "./views/PictView-DataBeacon-SQL.js": 42,
+      "./views/PictView-DataBeacon-SavedQueriesList.js": 43,
+      "./views/PictView-DataBeacon-ThemeSwitcher.js": 44,
       "pict-application": 5,
       "pict-router": 8,
       "pict-section-code": 11,
       "pict-view": 21
     }],
     24: [function (require, module, exports) {
+      /**
+       * Retold DataBeacon — Export Provider
+       *
+       * Converts an in-memory row set into JSON (array), JSON (Meadow
+       * Comprehension), CSV, or TSV and triggers a browser download. Shared by
+       * the RecordBrowser (paginated table page) and QueryPanel (SQL result set)
+       * views — any new view that shows tabular data can call the same entry
+       * point.
+       */
+      const libPictProvider = require('pict-provider');
+      const _ProviderConfiguration = {
+        ProviderIdentifier: 'DataBeacon-Export',
+        AutoInitialize: true,
+        AutoInitializeOrdinal: 0
+      };
+      const _SupportedFormats = ['json', 'json-comp', 'csv', 'tsv'];
+      class PictProviderDataBeaconExport extends libPictProvider {
+        constructor(pFable, pOptions, pServiceHash) {
+          let tmpOptions = Object.assign({}, _ProviderConfiguration, pOptions);
+          super(pFable, tmpOptions, pServiceHash);
+          this.serviceType = 'PictProviderDataBeaconExport';
+        }
+
+        /**
+         * Public entry point. Converts pRows to the requested format and kicks
+         * off a browser download.
+         *
+         * @param {string} pFormat - 'json' | 'json-comp' | 'csv' | 'tsv'
+         * @param {Array<Object>} pRows
+         * @param {Object} [pOptions]
+         * @param {string} [pOptions.BaseName]   - Filename stem (default "databeacon-export").
+         * @param {string} [pOptions.EntityName] - Top-level key for Comprehension exports (default "Record").
+         * @param {string} [pOptions.KeyField]   - Row field used as the Comprehension map key. Falls back to row index.
+         * @returns {boolean} true on success, false when the format is unknown or the download fails.
+         */
+        exportRows(pFormat, pRows, pOptions) {
+          if (_SupportedFormats.indexOf(pFormat) === -1) {
+            this.log.warn(`PictProviderDataBeaconExport: unsupported format [${pFormat}]`);
+            return false;
+          }
+          let tmpOptions = pOptions || {};
+          let tmpBase = tmpOptions.BaseName || 'databeacon-export';
+          let tmpRows = Array.isArray(pRows) ? pRows : [];
+          let tmpContent;
+          let tmpMime;
+          let tmpExt;
+          let tmpSuffix = '';
+          switch (pFormat) {
+            case 'json':
+              tmpContent = this.formatJSONArray(tmpRows);
+              tmpMime = 'application/json';
+              tmpExt = 'json';
+              break;
+            case 'json-comp':
+              tmpContent = this.formatJSONComprehension(tmpRows, tmpOptions.EntityName || 'Record', tmpOptions.KeyField);
+              tmpMime = 'application/json';
+              tmpExt = 'json';
+              tmpSuffix = '-comprehension';
+              break;
+            case 'csv':
+              tmpContent = this.formatCSV(tmpRows);
+              tmpMime = 'text/csv';
+              tmpExt = 'csv';
+              break;
+            case 'tsv':
+              tmpContent = this.formatTSV(tmpRows);
+              tmpMime = 'text/tab-separated-values';
+              tmpExt = 'tsv';
+              break;
+          }
+          let tmpFilename = `${tmpBase}${tmpSuffix}-${this._timestamp()}.${tmpExt}`;
+          return this._download(tmpContent, tmpMime, tmpFilename);
+        }
+
+        // ================================================================
+        // Format helpers (pure — exposed for test / reuse)
+        // ================================================================
+
+        formatJSONArray(pRows) {
+          return JSON.stringify(pRows || [], null, '\t');
+        }
+
+        /**
+         * Emit a Meadow-style Comprehension:
+         *   { [EntityName]: { [KeyValue]: { ...record }, ... } }
+         * Rows missing pKeyField fall back to 1-based row index as the map key.
+         */
+        formatJSONComprehension(pRows, pEntityName, pKeyField) {
+          let tmpEntity = pEntityName || 'Record';
+          let tmpRows = pRows || [];
+          let tmpMap = {};
+          for (let i = 0; i < tmpRows.length; i++) {
+            let tmpRow = tmpRows[i];
+            let tmpKey;
+            if (pKeyField && tmpRow && tmpRow[pKeyField] !== null && tmpRow[pKeyField] !== undefined && tmpRow[pKeyField] !== '') {
+              tmpKey = String(tmpRow[pKeyField]);
+            } else {
+              tmpKey = String(i + 1);
+            }
+            // Disambiguate duplicates by suffixing — Comprehension map keys must be unique.
+            let tmpCandidate = tmpKey;
+            let tmpCollisionIndex = 1;
+            while (Object.prototype.hasOwnProperty.call(tmpMap, tmpCandidate)) {
+              tmpCollisionIndex++;
+              tmpCandidate = `${tmpKey}#${tmpCollisionIndex}`;
+            }
+            tmpMap[tmpCandidate] = tmpRow;
+          }
+          let tmpOut = {};
+          tmpOut[tmpEntity] = tmpMap;
+          return JSON.stringify(tmpOut, null, '\t');
+        }
+        formatCSV(pRows) {
+          // RFC 4180: comma-separated, CRLF line endings, double-quote wrap
+          // when a field contains a delimiter / quote / newline.
+          return this._buildDelimited(pRows, ',', '\r\n', true);
+        }
+        formatTSV(pRows) {
+          // Classic TSV — tabs separate fields, LF separates rows. Tabs and
+          // newlines inside values are replaced with spaces because the TSV
+          // spec has no escape mechanism.
+          return this._buildDelimited(pRows, '\t', '\n', false);
+        }
+        _buildDelimited(pRows, pFieldSep, pRowSep, pQuote) {
+          let tmpRows = pRows || [];
+          let tmpColumns = this._collectColumns(tmpRows);
+          if (tmpColumns.length === 0) return '';
+          let tmpLines = [];
+          let tmpHeader = [];
+          for (let h = 0; h < tmpColumns.length; h++) {
+            tmpHeader.push(this._escapeField(tmpColumns[h], pFieldSep, pRowSep, pQuote));
+          }
+          tmpLines.push(tmpHeader.join(pFieldSep));
+          for (let r = 0; r < tmpRows.length; r++) {
+            let tmpRow = tmpRows[r] || {};
+            let tmpCells = [];
+            for (let c = 0; c < tmpColumns.length; c++) {
+              tmpCells.push(this._escapeField(tmpRow[tmpColumns[c]], pFieldSep, pRowSep, pQuote));
+            }
+            tmpLines.push(tmpCells.join(pFieldSep));
+          }
+          return tmpLines.join(pRowSep);
+        }
+
+        /**
+         * Walk every row and record column names in first-seen order so a union
+         * of sparse rows exports cleanly.
+         */
+        _collectColumns(pRows) {
+          let tmpSeen = {};
+          let tmpOrdered = [];
+          for (let i = 0; i < pRows.length; i++) {
+            let tmpRow = pRows[i];
+            if (!tmpRow || typeof tmpRow !== 'object') continue;
+            let tmpKeys = Object.keys(tmpRow);
+            for (let k = 0; k < tmpKeys.length; k++) {
+              if (!tmpSeen[tmpKeys[k]]) {
+                tmpSeen[tmpKeys[k]] = true;
+                tmpOrdered.push(tmpKeys[k]);
+              }
+            }
+          }
+          return tmpOrdered;
+        }
+        _escapeField(pValue, pFieldSep, pRowSep, pQuote) {
+          if (pValue === null || pValue === undefined) return '';
+          let tmpStr;
+          if (typeof pValue === 'object') {
+            try {
+              tmpStr = JSON.stringify(pValue);
+            } catch (pError) {
+              tmpStr = String(pValue);
+            }
+          } else {
+            tmpStr = String(pValue);
+          }
+          if (pQuote) {
+            let tmpNeedsQuote = tmpStr.indexOf(pFieldSep) !== -1 || tmpStr.indexOf('"') !== -1 || tmpStr.indexOf('\n') !== -1 || tmpStr.indexOf('\r') !== -1;
+            if (tmpNeedsQuote) tmpStr = '"' + tmpStr.replace(/"/g, '""') + '"';
+            return tmpStr;
+          }
+          return tmpStr.replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+        }
+        _timestamp() {
+          let tmpDate = new Date();
+          let tmpPad = n => String(n).padStart(2, '0');
+          return tmpDate.getFullYear() + tmpPad(tmpDate.getMonth() + 1) + tmpPad(tmpDate.getDate()) + '-' + tmpPad(tmpDate.getHours()) + tmpPad(tmpDate.getMinutes()) + tmpPad(tmpDate.getSeconds());
+        }
+        _download(pContent, pMime, pFilename) {
+          if (typeof document === 'undefined' || typeof Blob === 'undefined' || typeof URL === 'undefined') {
+            this.log.warn('PictProviderDataBeaconExport: no browser APIs available; cannot download.');
+            return false;
+          }
+          try {
+            let tmpBlob = new Blob([pContent], {
+              type: `${pMime};charset=utf-8`
+            });
+            let tmpUrl = URL.createObjectURL(tmpBlob);
+            let tmpAnchor = document.createElement('a');
+            tmpAnchor.href = tmpUrl;
+            tmpAnchor.download = pFilename;
+            tmpAnchor.style.display = 'none';
+            document.body.appendChild(tmpAnchor);
+            tmpAnchor.click();
+            setTimeout(() => {
+              if (tmpAnchor.parentNode) tmpAnchor.parentNode.removeChild(tmpAnchor);
+              URL.revokeObjectURL(tmpUrl);
+            }, 0);
+            return true;
+          } catch (pError) {
+            this.log.error(`PictProviderDataBeaconExport: download failed: ${pError && pError.message ? pError.message : pError}`);
+            return false;
+          }
+        }
+      }
+      module.exports = PictProviderDataBeaconExport;
+      module.exports.default_configuration = _ProviderConfiguration;
+    }, {
+      "pict-provider": 7
+    }],
+    25: [function (require, module, exports) {
       /**
        * Retold DataBeacon — Icon Provider
        *
@@ -6732,6 +6968,11 @@
         'terminal': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>',
         'chevron-left': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
         'chevron-right': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>',
+        'download': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+        'save': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+        'chevron-up': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>',
+        'chevron-down': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+        'tag': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
         // ── Row / button actions ──────────────────────────────────────────────
 
         'plus': '<svg xmlns="http://www.w3.org/2000/svg" width="{IconSize}" height="{IconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -6846,7 +7087,295 @@
     }, {
       "pict-provider": 7
     }],
-    25: [function (require, module, exports) {
+    26: [function (require, module, exports) {
+      /**
+       * Retold DataBeacon — Saved Queries Provider
+       *
+       * localStorage-backed library of reusable SQL queries. Each record has a
+       * stable GUIDSavedQuery (Meadow's GUID${Entity} convention), a Name,
+       * free-form Documentation, the SQL body, an optional associated connection,
+       * freeform Tags, create/update timestamps, and a last-run timestamp +
+       * row count populated by QueryPanel.execute.
+       *
+       * Storage envelope:
+       *   localStorage[databeacon.savedQueries] = JSON.stringify({
+       *     Version: 1,
+       *     Records: { [GUID]: { ...record } }
+       *   })
+       *
+       * Exposes view-ready data at AppData.SavedQueries for the
+       * SavedQueriesList view and QueryPanel to bind against.
+       */
+      const libPictProvider = require('pict-provider');
+      const _ProviderConfiguration = {
+        ProviderIdentifier: 'DataBeacon-SavedQueries',
+        AutoInitialize: true,
+        AutoInitializeOrdinal: 0
+      };
+      const _StorageKey = 'databeacon.savedQueries';
+      const _SchemaVersion = 1;
+      class PictProviderDataBeaconSavedQueries extends libPictProvider {
+        constructor(pFable, pOptions, pServiceHash) {
+          let tmpOptions = Object.assign({}, _ProviderConfiguration, pOptions);
+          super(pFable, tmpOptions, pServiceHash);
+          this.serviceType = 'PictProviderDataBeaconSavedQueries';
+          this._Records = {};
+        }
+        onAfterInitialize() {
+          this._load();
+          if (!this.pict.AppData.SavedQueries) {
+            this.pict.AppData.SavedQueries = {
+              List: [],
+              Count: 0,
+              IsEmpty: true,
+              Expanded: false,
+              ActiveGUID: null,
+              ToggleIcon: 'chevron-right'
+            };
+          }
+          this._recomputeViewData();
+          return super.onAfterInitialize();
+        }
+
+        // ================================================================
+        // Public CRUD
+        // ================================================================
+
+        list() {
+          let tmpOut = [];
+          let tmpKeys = Object.keys(this._Records);
+          for (let i = 0; i < tmpKeys.length; i++) tmpOut.push(this._Records[tmpKeys[i]]);
+          tmpOut.sort((a, b) => String(b.DateUpdated || '').localeCompare(String(a.DateUpdated || '')));
+          return tmpOut;
+        }
+        get(pGUID) {
+          if (!pGUID) return null;
+          return this._Records[pGUID] || null;
+        }
+        create(pDraft) {
+          let tmpDraft = pDraft || {};
+          let tmpGUID = this._generateGUID();
+          let tmpNow = new Date().toISOString();
+          let tmpRecord = {
+            GUIDSavedQuery: tmpGUID,
+            Name: typeof tmpDraft.Name === 'string' && tmpDraft.Name.length > 0 ? tmpDraft.Name : 'Untitled Query',
+            Documentation: typeof tmpDraft.Documentation === 'string' ? tmpDraft.Documentation : '',
+            SQL: typeof tmpDraft.SQL === 'string' ? tmpDraft.SQL : '',
+            IDBeaconConnection: this._normalizeConnectionID(tmpDraft.IDBeaconConnection),
+            Tags: this._normalizeTags(tmpDraft.Tags),
+            DateCreated: tmpNow,
+            DateUpdated: tmpNow,
+            DateLastRun: null,
+            LastRowCount: null
+          };
+          this._Records[tmpGUID] = tmpRecord;
+          this._persist();
+          this._broadcast();
+          return tmpRecord;
+        }
+        update(pGUID, pPatch) {
+          let tmpExisting = this._Records[pGUID];
+          if (!tmpExisting) return null;
+          let tmpNext = Object.assign({}, tmpExisting);
+          if (pPatch) {
+            if (typeof pPatch.Name === 'string' && pPatch.Name.length > 0) tmpNext.Name = pPatch.Name;
+            if (typeof pPatch.Documentation === 'string') tmpNext.Documentation = pPatch.Documentation;
+            if (typeof pPatch.SQL === 'string') tmpNext.SQL = pPatch.SQL;
+            if ('IDBeaconConnection' in pPatch) tmpNext.IDBeaconConnection = this._normalizeConnectionID(pPatch.IDBeaconConnection);
+            if ('Tags' in pPatch) tmpNext.Tags = this._normalizeTags(pPatch.Tags);
+          }
+          tmpNext.DateUpdated = new Date().toISOString();
+          this._Records[pGUID] = tmpNext;
+          this._persist();
+          this._broadcast();
+          return tmpNext;
+        }
+        remove(pGUID) {
+          if (!this._Records[pGUID]) return false;
+          delete this._Records[pGUID];
+          // If the deleted query was the active one, clear the active pointer.
+          if (this.pict.AppData.SavedQueries && this.pict.AppData.SavedQueries.ActiveGUID === pGUID) {
+            this.pict.AppData.SavedQueries.ActiveGUID = null;
+          }
+          this._persist();
+          this._broadcast();
+          return true;
+        }
+
+        /**
+         * Record a successful execution against a saved query. Invoked from
+         * QueryPanel._execute after the server responds.
+         */
+        noteRun(pGUID, pRowCount) {
+          if (!pGUID || !this._Records[pGUID]) return false;
+          this._Records[pGUID].DateLastRun = new Date().toISOString();
+          this._Records[pGUID].LastRowCount = typeof pRowCount === 'number' && isFinite(pRowCount) ? pRowCount : null;
+          this._persist();
+          this._broadcast();
+          return true;
+        }
+        setActiveGUID(pGUID) {
+          if (!this.pict.AppData.SavedQueries) this.pict.AppData.SavedQueries = {};
+          this.pict.AppData.SavedQueries.ActiveGUID = pGUID || null;
+          this._broadcast();
+        }
+        getActiveGUID() {
+          return this.pict.AppData.SavedQueries && this.pict.AppData.SavedQueries.ActiveGUID || null;
+        }
+        setExpanded(pExpanded) {
+          if (!this.pict.AppData.SavedQueries) this.pict.AppData.SavedQueries = {};
+          this.pict.AppData.SavedQueries.Expanded = !!pExpanded;
+          this._broadcast();
+        }
+        toggleExpanded() {
+          this.setExpanded(!(this.pict.AppData.SavedQueries && this.pict.AppData.SavedQueries.Expanded));
+        }
+
+        // ================================================================
+        // Internal
+        // ================================================================
+
+        _broadcast() {
+          this._recomputeViewData();
+          if (this.pict.views.SavedQueriesList && typeof this.pict.views.SavedQueriesList.render === 'function') {
+            this.pict.views.SavedQueriesList.render();
+          }
+        }
+        _recomputeViewData() {
+          let tmpItems = this.list();
+          let tmpConnections = this.pict.AppData.Connections || [];
+          let tmpPrev = this.pict.AppData.SavedQueries || {};
+          let tmpActiveGUID = tmpPrev.ActiveGUID || null;
+          let tmpExpanded = !!tmpPrev.Expanded;
+          let tmpList = [];
+          for (let i = 0; i < tmpItems.length; i++) {
+            let tmpR = tmpItems[i];
+            let tmpConn = this._findConnection(tmpConnections, tmpR.IDBeaconConnection);
+            let tmpIsActive = tmpR.GUIDSavedQuery === tmpActiveGUID;
+            tmpList.push({
+              GUIDSavedQuery: tmpR.GUIDSavedQuery,
+              Name: tmpR.Name,
+              Documentation: tmpR.Documentation,
+              DocumentationPreview: this._truncate(tmpR.Documentation, 80),
+              SQL: tmpR.SQL,
+              IDBeaconConnection: tmpR.IDBeaconConnection,
+              Tags: tmpR.Tags,
+              TagsDisplay: Array.isArray(tmpR.Tags) && tmpR.Tags.length > 0 ? tmpR.Tags.join(', ') : '—',
+              ConnectionLabel: tmpConn ? `${tmpConn.Name} (${tmpConn.Type})` : '—',
+              DateCreated: tmpR.DateCreated,
+              DateUpdated: tmpR.DateUpdated,
+              DateLastRun: tmpR.DateLastRun,
+              DateUpdatedDisplay: this._formatDate(tmpR.DateUpdated),
+              DateLastRunDisplay: tmpR.DateLastRun ? this._formatDate(tmpR.DateLastRun) : '—',
+              LastRowCount: tmpR.LastRowCount,
+              LastRowCountDisplay: tmpR.LastRowCount !== null && tmpR.LastRowCount !== undefined ? String(tmpR.LastRowCount) : '—',
+              IsActive: tmpIsActive,
+              ActiveClass: tmpIsActive ? 'is-active-query' : ''
+            });
+          }
+          this.pict.AppData.SavedQueries = {
+            List: tmpList,
+            Count: tmpList.length,
+            IsEmpty: tmpList.length === 0,
+            Expanded: tmpExpanded,
+            ActiveGUID: tmpActiveGUID,
+            ToggleIcon: tmpExpanded ? 'chevron-down' : 'chevron-right',
+            ToggleLabel: tmpExpanded ? 'Hide' : 'Show'
+          };
+        }
+        _findConnection(pConnections, pID) {
+          if (pID === null || pID === undefined) return null;
+          for (let i = 0; i < pConnections.length; i++) {
+            if (pConnections[i].IDBeaconConnection === pID) return pConnections[i];
+          }
+          return null;
+        }
+        _truncate(pStr, pMax) {
+          if (!pStr) return '';
+          let tmpS = String(pStr);
+          return tmpS.length <= pMax ? tmpS : tmpS.substring(0, pMax - 1) + '…';
+        }
+        _formatDate(pISO) {
+          if (!pISO) return '';
+          try {
+            let tmpD = new Date(pISO);
+            if (isNaN(tmpD.getTime())) return pISO;
+            let tmpPad = n => String(n).padStart(2, '0');
+            return tmpD.getFullYear() + '-' + tmpPad(tmpD.getMonth() + 1) + '-' + tmpPad(tmpD.getDate()) + ' ' + tmpPad(tmpD.getHours()) + ':' + tmpPad(tmpD.getMinutes());
+          } catch (pError) {
+            return pISO;
+          }
+        }
+        _normalizeTags(pTags) {
+          if (Array.isArray(pTags)) {
+            let tmpOut = [];
+            for (let i = 0; i < pTags.length; i++) {
+              let tmpT = String(pTags[i] || '').trim();
+              if (tmpT.length > 0) tmpOut.push(tmpT);
+            }
+            return tmpOut;
+          }
+          if (typeof pTags === 'string') {
+            let tmpParts = pTags.split(',');
+            let tmpOut = [];
+            for (let i = 0; i < tmpParts.length; i++) {
+              let tmpT = tmpParts[i].trim();
+              if (tmpT.length > 0) tmpOut.push(tmpT);
+            }
+            return tmpOut;
+          }
+          return [];
+        }
+        _normalizeConnectionID(pID) {
+          if (pID === null || pID === undefined || pID === '') return null;
+          let tmpN = parseInt(pID, 10);
+          return isNaN(tmpN) ? null : tmpN;
+        }
+        _generateGUID() {
+          if (this.pict && typeof this.pict.getUUID === 'function') {
+            try {
+              let tmpUUID = this.pict.getUUID();
+              if (tmpUUID) return tmpUUID;
+            } catch (pError) {/* fall through */}
+          }
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, pChar => {
+            let tmpR = Math.random() * 16 | 0;
+            let tmpV = pChar === 'x' ? tmpR : tmpR & 0x3 | 0x8;
+            return tmpV.toString(16);
+          });
+        }
+        _load() {
+          try {
+            if (typeof localStorage === 'undefined') return;
+            let tmpRaw = localStorage.getItem(_StorageKey);
+            if (!tmpRaw) return;
+            let tmpParsed = JSON.parse(tmpRaw);
+            if (tmpParsed && tmpParsed.Version === _SchemaVersion && tmpParsed.Records && typeof tmpParsed.Records === 'object') {
+              this._Records = tmpParsed.Records;
+            }
+          } catch (pError) {
+            this.log.warn(`SavedQueries load failed: ${pError && pError.message ? pError.message : pError}`);
+            this._Records = {};
+          }
+        }
+        _persist() {
+          try {
+            if (typeof localStorage === 'undefined') return;
+            localStorage.setItem(_StorageKey, JSON.stringify({
+              Version: _SchemaVersion,
+              Records: this._Records
+            }));
+          } catch (pError) {
+            this.log.warn(`SavedQueries persist failed: ${pError && pError.message ? pError.message : pError}`);
+          }
+        }
+      }
+      module.exports = PictProviderDataBeaconSavedQueries;
+      module.exports.default_configuration = _ProviderConfiguration;
+    }, {
+      "pict-provider": 7
+    }],
+    27: [function (require, module, exports) {
       /**
        * Retold DataBeacon — Theme CSS
        *
@@ -7076,7 +7605,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 }
 `;
     }, {}],
-    26: [function (require, module, exports) {
+    28: [function (require, module, exports) {
       /**
        * Retold DataBeacon — Theme Provider
        *
@@ -7297,10 +7826,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
       module.exports = PictProviderDataBeaconTheme;
       module.exports.default_configuration = _ProviderConfiguration;
     }, {
-      "./Pict-Provider-DataBeacon-Theme-CSS.js": 25,
+      "./Pict-Provider-DataBeacon-Theme-CSS.js": 27,
       "pict-provider": 7
     }],
-    27: [function (require, module, exports) {
+    29: [function (require, module, exports) {
       /**
        * Retold DataBeacon — API Provider
        *
@@ -7725,6 +8254,11 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           return {
             ColumnList: tmpColumnList,
             Rows: tmpRowList,
+            // RawRows keeps the unformatted response so the export provider
+            // can serialize to JSON/CSV/TSV without having to reverse the
+            // cell-HTML formatting. Limited to the same display window the
+            // user actually sees.
+            RawRows: pRows.slice(0, tmpLimit),
             DisplayCount: tmpLimit,
             TotalCount: pRows.length,
             IsTruncated: pRows.length > 100
@@ -7865,7 +8399,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    28: [function (require, module, exports) {
+    30: [function (require, module, exports) {
       /**
        * DataBeacon ConnectionForm View
        *
@@ -7980,7 +8514,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    29: [function (require, module, exports) {
+    31: [function (require, module, exports) {
       /**
        * DataBeacon ConnectionList View
        *
@@ -8126,7 +8660,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    30: [function (require, module, exports) {
+    32: [function (require, module, exports) {
       /**
        * DataBeacon Connections Page (container view)
        *
@@ -8172,7 +8706,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    31: [function (require, module, exports) {
+    33: [function (require, module, exports) {
       /**
        * DataBeacon Dashboard View
        *
@@ -8282,7 +8816,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    32: [function (require, module, exports) {
+    34: [function (require, module, exports) {
       /**
        * DataBeacon Endpoints View
        *
@@ -8397,7 +8931,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    33: [function (require, module, exports) {
+    35: [function (require, module, exports) {
       /**
        * DataBeacon Introspection Page (container view)
        *
@@ -8451,7 +8985,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    34: [function (require, module, exports) {
+    36: [function (require, module, exports) {
       /**
        * DataBeacon IntrospectionControls View
        *
@@ -8605,7 +9139,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    35: [function (require, module, exports) {
+    37: [function (require, module, exports) {
       /**
        * DataBeacon IntrospectionTables View
        *
@@ -8821,7 +9355,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    36: [function (require, module, exports) {
+    38: [function (require, module, exports) {
       /**
        * DataBeacon Layout View
        *
@@ -8989,7 +9523,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    37: [function (require, module, exports) {
+    39: [function (require, module, exports) {
       /**
        * DataBeacon QueryPanel View
        *
@@ -9038,6 +9572,8 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		#DataBeacon-QueryPanel-Editor .comment { color: var(--text-muted); font-style: italic; }
 		#DataBeacon-QueryPanel-Editor .operator { color: var(--accent-info); }
 		#DataBeacon-QueryPanel-Editor .function-name { color: var(--accent-info); }
+		#DataBeacon-QueryPanel-Root .databeacon-export-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+		#DataBeacon-QueryPanel-Root .databeacon-export-bar .databeacon-export-label { color: var(--text-muted); font-size: 12px; margin-right: 4px; }
 	`,
         Templates: [{
           Hash: 'DataBeacon-QueryPanel-Template',
@@ -9053,6 +9589,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 			<span data-databeacon-icon="play" data-icon-size="16"></span>
 			Execute
 		</button>
+		<button class="btn btn-secondary" data-databeacon-action="save-query">
+			<span data-databeacon-icon="save" data-icon-size="16"></span>
+			Save…
+		</button>
 	</div>
 	<div id="DataBeacon-QueryPanel-Results"></div>
 </div>`
@@ -9065,7 +9605,26 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		<tbody>{~TS:DataBeacon-QueryPanel-Row:AppData.QueryPanel.Rows~}</tbody>
 	</table>
 </div>
-{~TemplateIfAbsolute:DataBeacon-QueryPanel-TruncationNote:AppData.QueryPanel:AppData.QueryPanel.IsTruncated^TRUE^x~}`
+{~TemplateIfAbsolute:DataBeacon-QueryPanel-TruncationNote:AppData.QueryPanel:AppData.QueryPanel.IsTruncated^TRUE^x~}
+{~Template:DataBeacon-QueryPanel-ExportBar:~}`
+        }, {
+          Hash: 'DataBeacon-QueryPanel-ExportBar',
+          Template: /*html*/`
+<div class="databeacon-export-bar">
+	<span class="databeacon-export-label">Export result:</span>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
+	</button>
+</div>`
         }, {
           Hash: 'DataBeacon-QueryPanel-HeaderCell',
           Template: `<th>{~D:Record.Name~}</th>`
@@ -9106,7 +9665,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             tmpRootList[0].addEventListener('click', pEvent => {
               let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
               if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
+              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
             });
           }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
@@ -9222,8 +9781,47 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           tmpAfter.setStart(tmpRange.endContainer, tmpRange.endOffset);
           return tmpAfter.toString().length === 0;
         }
-        _handleAction(pAction) {
-          if (pAction === 'execute') this._execute();
+        _handleAction(pAction, pData) {
+          if (pAction === 'execute') this._execute();else if (pAction === 'export') this._export(pData && pData.exportFormat);else if (pAction === 'save-query') this._openSaveModal();
+        }
+        _openSaveModal() {
+          let tmpList = this.pict.views.SavedQueriesList;
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          if (!tmpList || !tmpProvider) return;
+          let tmpSQL = this._readSQL();
+          let tmpActiveGUID = tmpProvider.getActiveGUID();
+          tmpList.openSaveFormModal({
+            GUID: tmpActiveGUID,
+            SQL: tmpSQL,
+            EditMetadataOnly: false
+          });
+        }
+        _export(pFormat) {
+          let tmpExport = this.pict.providers['DataBeacon-Export'];
+          if (!tmpExport) return;
+          let tmpQP = this.pict.AppData.QueryPanel || {};
+          let tmpRows = Array.isArray(tmpQP.RawRows) ? tmpQP.RawRows : [];
+          if (tmpRows.length === 0) return;
+
+          // Query results have no table-of-origin — autodetect a Comprehension
+          // key by looking for Meadow's GUID${Entity} convention. Any column
+          // whose name starts with "GUID" wins; otherwise fall through to the
+          // exporter's 1-based row-index fallback.
+          let tmpKeyField = null;
+          if (tmpRows[0] && typeof tmpRows[0] === 'object') {
+            let tmpKeys = Object.keys(tmpRows[0]);
+            for (let k = 0; k < tmpKeys.length; k++) {
+              if (/^GUID[A-Z]/.test(tmpKeys[k])) {
+                tmpKeyField = tmpKeys[k];
+                break;
+              }
+            }
+          }
+          tmpExport.exportRows(pFormat, tmpRows, {
+            BaseName: 'query-result',
+            EntityName: 'QueryResult',
+            KeyField: tmpKeyField
+          });
         }
         _readSQL() {
           let tmpEditor = this.pict.views.SQLEditor;
@@ -9269,6 +9867,19 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             this.pict.AppData.QueryPanel = Object.assign({}, this.pict.AppData.QueryPanel, tmpProvider.buildQueryResultViewData(tmpRows));
             let tmpHTML = this.pict.parseTemplateByHash('DataBeacon-QueryPanel-ResultsTable', null);
             this.pict.ContentAssignment.assignContent(tmpResultsSelector, tmpHTML);
+            // The results fragment contains fresh data-databeacon-icon
+            // placeholders (export-bar buttons) — fill them in now since
+            // the view's initial icon pass ran before these elements existed.
+            let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+            if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-QueryPanel-Root');
+
+            // If a saved query is currently loaded, record this successful
+            // execution on it (timestamp + row count).
+            let tmpSavedProvider = this.pict.providers['DataBeacon-SavedQueries'];
+            if (tmpSavedProvider) {
+              let tmpGUID = tmpSavedProvider.getActiveGUID();
+              if (tmpGUID) tmpSavedProvider.noteRun(tmpGUID, tmpRows.length);
+            }
           });
         }
       }
@@ -9277,7 +9888,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    38: [function (require, module, exports) {
+    40: [function (require, module, exports) {
       /**
        * DataBeacon RecordBrowser View
        *
@@ -9300,6 +9911,8 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		.databeacon-records-start-input { width: 100px; }
 		.databeacon-records-pagesize-select { width: 90px; }
 		.databeacon-records-range { margin-top: 8px; color: var(--text-muted); font-size: 12px; }
+		.databeacon-export-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+		.databeacon-export-bar .databeacon-export-label { color: var(--text-muted); font-size: 12px; margin-right: 4px; }
 	`,
         Templates: [{
           Hash: 'DataBeacon-RecordBrowser-Template',
@@ -9345,6 +9958,25 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Empty:AppData.RecordBrowser:AppData.RecordBrowser.State^==^Empty~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-NoSelection:AppData.RecordBrowser:AppData.RecordBrowser.State^==^NoSelection~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Table:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
+	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-ExportBar:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
+</div>`
+        }, {
+          Hash: 'DataBeacon-RecordBrowser-ExportBar',
+          Template: /*html*/`
+<div class="databeacon-export-bar">
+	<span class="databeacon-export-label">Export current page:</span>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
+	</button>
+	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
+	</button>
 </div>`
         }, {
           Hash: 'DataBeacon-RecordBrowser-TableOption',
@@ -9401,7 +10033,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             tmpRoot.addEventListener('click', pEvent => {
               let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
               if (!tmpBtn || tmpBtn.tagName !== 'BUTTON') return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
+              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
             });
             tmpRoot.addEventListener('change', pEvent => {
               let tmpEl = pEvent.target.closest('[data-databeacon-action]');
@@ -9420,7 +10052,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           let tmpNext = this.pict.ContentAssignment.getElement('[data-databeacon-action="next"]');
           if (tmpNext && tmpNext.length > 0) tmpNext[0].disabled = !!tmpBrowser.NextDisabled;
         }
-        _handleAction(pAction) {
+        _handleAction(pAction, pData) {
           let tmpProvider = this.pict.providers.DataBeaconProvider;
           let tmpBrowser = this.pict.AppData.RecordBrowser || {};
           let tmpTable = this.pict.AppData.SelectedTableName;
@@ -9440,7 +10072,64 @@ body[data-theme="sgi"][data-mode-effective="dark"]
               this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
               tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
               break;
+            case 'export':
+              this._export(pData && pData.exportFormat, tmpTable, tmpStart, tmpSize);
+              break;
           }
+        }
+        _export(pFormat, pTable, pStart, pSize) {
+          let tmpExport = this.pict.providers['DataBeacon-Export'];
+          if (!tmpExport) return;
+          let tmpRows = Array.isArray(this.pict.AppData.Records) ? this.pict.AppData.Records : [];
+          if (tmpRows.length === 0) return;
+          let tmpEntity = pTable || 'Record';
+          let tmpKeyField = this._findGUIDField(tmpEntity, tmpRows);
+          let tmpBase = `${tmpEntity}-${pStart}-${pStart + tmpRows.length - 1}`;
+          tmpExport.exportRows(pFormat, tmpRows, {
+            BaseName: tmpBase,
+            EntityName: tmpEntity,
+            KeyField: tmpKeyField
+          });
+        }
+
+        /**
+         * Resolve the Comprehension key column for the selected table.
+         *
+         * Meadow's Comprehension format keys records by a GUID column, not the
+         * numeric primary key. The default GUIDName is `GUID${Entity}` (e.g.
+         * `GUIDUser` for the `User` entity). We try, in order:
+         *   1) Exact match `GUID${Entity}` on the first row.
+         *   2) Exact match `GUID${Entity}` in the introspected column list.
+         *   3) Any column whose name starts with `GUID[A-Z]` in the first row.
+         *   4) null — the exporter then falls back to 1-based row index.
+         */
+        _findGUIDField(pEntityName, pRows) {
+          let tmpFirstRow = pRows && pRows.length > 0 && typeof pRows[0] === 'object' && pRows[0] !== null ? pRows[0] : null;
+          if (pEntityName && tmpFirstRow) {
+            let tmpExpected = `GUID${pEntityName}`;
+            if (Object.prototype.hasOwnProperty.call(tmpFirstRow, tmpExpected)) {
+              return tmpExpected;
+            }
+          }
+          if (pEntityName) {
+            let tmpTables = this.pict.AppData.Tables || [];
+            let tmpExpected = `GUID${pEntityName}`;
+            for (let i = 0; i < tmpTables.length; i++) {
+              if (tmpTables[i].TableName !== pEntityName) continue;
+              let tmpColumns = tmpTables[i].Columns || [];
+              for (let c = 0; c < tmpColumns.length; c++) {
+                if (tmpColumns[c].Name === tmpExpected) return tmpExpected;
+              }
+              break;
+            }
+          }
+          if (tmpFirstRow) {
+            let tmpKeys = Object.keys(tmpFirstRow);
+            for (let k = 0; k < tmpKeys.length; k++) {
+              if (/^GUID[A-Z]/.test(tmpKeys[k])) return tmpKeys[k];
+            }
+          }
+          return null;
         }
         _handleChange(pAction, pRawValue) {
           let tmpProvider = this.pict.providers.DataBeaconProvider;
@@ -9505,7 +10194,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    39: [function (require, module, exports) {
+    41: [function (require, module, exports) {
       /**
        * DataBeacon Records Page (container view)
        *
@@ -9555,7 +10244,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    40: [function (require, module, exports) {
+    42: [function (require, module, exports) {
       /**
        * DataBeacon SQL Page (container view)
        *
@@ -9573,6 +10262,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Template: /*html*/`
 <div class="sql-view">
 	<h1>SQL Query</h1>
+	<div id="DataBeacon-SavedQueries-Slot"></div>
 	<div id="DataBeacon-QueryPanel-Slot"></div>
 </div>`
         }],
@@ -9588,6 +10278,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           super(pFable, pOptions, pServiceHash);
         }
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
+          if (this.pict.views.SavedQueriesList) this.pict.views.SavedQueriesList.render();
           if (this.pict.views.QueryPanel) this.pict.views.QueryPanel.render();
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
@@ -9597,7 +10288,408 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    41: [function (require, module, exports) {
+    43: [function (require, module, exports) {
+      /**
+       * DataBeacon SavedQueriesList View
+       *
+       * Collapsible panel above the QueryPanel that lists saved SQL queries.
+       * Handles Load / Edit / Delete actions and opens the shared save/edit
+       * form modal (also used by QueryPanel's Save button). Persists via the
+       * DataBeacon-SavedQueries provider.
+       */
+      const libPictView = require('pict-view');
+      const _ViewConfiguration = {
+        ViewIdentifier: 'SavedQueriesList',
+        DefaultRenderable: 'DataBeacon-SavedQueriesList',
+        DefaultDestinationAddress: '#DataBeacon-SavedQueries-Slot',
+        AutoRender: false,
+        CSS: /*css*/`
+		.databeacon-saved-panel { padding: 0; }
+		.databeacon-saved-header
+		{
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 14px 20px;
+			cursor: pointer;
+			user-select: none;
+		}
+		.databeacon-saved-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+		.databeacon-saved-header-right { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 13px; }
+		.databeacon-saved-body { padding: 0 20px 20px 20px; border-top: 1px solid var(--border-color); }
+		.databeacon-saved-empty { color: var(--text-muted); padding: 16px 0; font-style: italic; }
+		.databeacon-saved-row { }
+		.databeacon-saved-row.is-active-query { background: color-mix(in srgb, var(--accent-primary) 15%, transparent); }
+		.databeacon-saved-name { font-weight: 600; }
+		.databeacon-saved-docpreview { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+		.databeacon-saved-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.databeacon-saved-form-grid .full { grid-column: 1 / span 2; }
+		.databeacon-saved-form-grid label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+		.databeacon-saved-form-grid input,
+		.databeacon-saved-form-grid textarea,
+		.databeacon-saved-form-grid select { width: 100%; }
+		.databeacon-saved-form-grid textarea { min-height: 80px; resize: vertical; }
+		.databeacon-saved-form-sqlpreview
+		{
+			background: var(--bg-input);
+			color: var(--text-primary);
+			border: 1px solid var(--border-color);
+			border-radius: 4px;
+			padding: 8px;
+			font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+			font-size: 12px;
+			max-height: 160px;
+			overflow: auto;
+			white-space: pre-wrap;
+		}
+	`,
+        Templates: [{
+          Hash: 'DataBeacon-SavedQueriesList-Template',
+          Template: /*html*/`
+<div id="DataBeacon-SavedQueries-Root" class="section databeacon-saved-panel">
+	<div class="databeacon-saved-header" data-databeacon-action="toggle-panel">
+		<h2>Saved Queries ({~D:AppData.SavedQueries.Count:0~})</h2>
+		<div class="databeacon-saved-header-right">
+			<span>{~D:AppData.SavedQueries.ToggleLabel~}</span>
+			<span data-databeacon-icon="{~D:AppData.SavedQueries.ToggleIcon~}" data-icon-size="16"></span>
+		</div>
+	</div>
+	{~TemplateIfAbsolute:DataBeacon-SavedQueriesList-Body:AppData.SavedQueries:AppData.SavedQueries.Expanded^TRUE^x~}
+</div>`
+        }, {
+          Hash: 'DataBeacon-SavedQueriesList-Body',
+          Template: /*html*/`
+<div class="databeacon-saved-body">
+	{~TemplateIfAbsolute:DataBeacon-SavedQueriesList-Empty:AppData.SavedQueries:AppData.SavedQueries.IsEmpty^TRUE^x~}
+	{~TemplateIfAbsolute:DataBeacon-SavedQueriesList-Table:AppData.SavedQueries:AppData.SavedQueries.IsEmpty^FALSE^x~}
+</div>`
+        }, {
+          Hash: 'DataBeacon-SavedQueriesList-Empty',
+          Template: `<p class="databeacon-saved-empty">No saved queries yet. Write a query in the editor below and click <strong>Save</strong> to add one.</p>`
+        }, {
+          Hash: 'DataBeacon-SavedQueriesList-Table',
+          Template: /*html*/`
+<table class="data-table">
+	<thead><tr><th>Name</th><th>Tags</th><th>Connection</th><th>Updated</th><th>Last Run</th><th>Rows</th><th>Actions</th></tr></thead>
+	<tbody>{~TS:DataBeacon-SavedQueriesList-Row:AppData.SavedQueries.List~}</tbody>
+</table>`
+        }, {
+          Hash: 'DataBeacon-SavedQueriesList-Row',
+          Template: /*html*/`
+<tr class="databeacon-saved-row {~D:Record.ActiveClass~}">
+	<td>
+		<div class="databeacon-saved-name">{~D:Record.Name~}</div>
+		<div class="databeacon-saved-docpreview">{~D:Record.DocumentationPreview~}</div>
+	</td>
+	<td>{~D:Record.TagsDisplay~}</td>
+	<td>{~D:Record.ConnectionLabel~}</td>
+	<td>{~D:Record.DateUpdatedDisplay~}</td>
+	<td>{~D:Record.DateLastRunDisplay~}</td>
+	<td>{~D:Record.LastRowCountDisplay~}</td>
+	<td class="actions-cell">
+		<button class="btn btn-small btn-primary" data-databeacon-action="load" data-guid="{~D:Record.GUIDSavedQuery~}">
+			<span data-databeacon-icon="play" data-icon-size="14"></span> Load
+		</button>
+		<button class="btn btn-small btn-secondary" data-databeacon-action="edit" data-guid="{~D:Record.GUIDSavedQuery~}">
+			<span data-databeacon-icon="info" data-icon-size="14"></span> Edit
+		</button>
+		<button class="btn btn-small btn-danger" data-databeacon-action="delete" data-guid="{~D:Record.GUIDSavedQuery~}">
+			<span data-databeacon-icon="trash" data-icon-size="14"></span> Delete
+		</button>
+	</td>
+</tr>`
+        }, {
+          Hash: 'DataBeacon-SavedQueryForm-Body',
+          Template: /*html*/`
+<div class="databeacon-saved-form-grid">
+	<div class="full">
+		<label for="databeacon-savedform-name">Name</label>
+		<input type="text" id="databeacon-savedform-name" value="{~D:AppData.SavedQueryForm.Name~}" placeholder="e.g. Active users in last 30 days" />
+	</div>
+	<div class="full">
+		<label for="databeacon-savedform-doc">Documentation</label>
+		<textarea id="databeacon-savedform-doc" placeholder="What does this query do? Parameters, edge cases, notes.">{~D:AppData.SavedQueryForm.Documentation~}</textarea>
+	</div>
+	<div>
+		<label for="databeacon-savedform-tags">Tags / Folder (comma-separated)</label>
+		<input type="text" id="databeacon-savedform-tags" value="{~D:AppData.SavedQueryForm.TagsDisplay~}" placeholder="analytics, users" />
+	</div>
+	<div>
+		<label for="databeacon-savedform-conn">Associated Connection</label>
+		<select id="databeacon-savedform-conn">
+			<option value="">— None —</option>
+			{~TS:DataBeacon-SavedQueryForm-ConnectionOption:AppData.SavedQueryForm.ConnectionOptions~}
+		</select>
+	</div>
+	<div class="full">
+		<label>SQL</label>
+		<div class="databeacon-saved-form-sqlpreview">{~D:AppData.SavedQueryForm.SQLDisplay~}</div>
+	</div>
+</div>`
+        }, {
+          Hash: 'DataBeacon-SavedQueryForm-ConnectionOption',
+          Template: `<option value="{~D:Record.IDBeaconConnection~}" {~D:Record.SelectedAttr~}>{~D:Record.Label~}</option>`
+        }],
+        Renderables: [{
+          RenderableHash: 'DataBeacon-SavedQueriesList',
+          TemplateHash: 'DataBeacon-SavedQueriesList-Template',
+          ContentDestinationAddress: '#DataBeacon-SavedQueries-Slot',
+          RenderMethod: 'replace'
+        }]
+      };
+      class PictViewDataBeaconSavedQueriesList extends libPictView {
+        constructor(pFable, pOptions, pServiceHash) {
+          super(pFable, pOptions, pServiceHash);
+        }
+        onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
+          let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+          if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-SavedQueries-Root');
+          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-SavedQueries-Root');
+          if (tmpRootList && tmpRootList.length > 0) {
+            tmpRootList[0].addEventListener('click', pEvent => {
+              let tmpTarget = pEvent.target.closest('[data-databeacon-action]');
+              if (!tmpTarget) return;
+              this._handleAction(tmpTarget.getAttribute('data-databeacon-action'), tmpTarget.dataset);
+            });
+          }
+          return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
+        }
+        _handleAction(pAction, pData) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          if (!tmpProvider) return;
+          switch (pAction) {
+            case 'toggle-panel':
+              tmpProvider.toggleExpanded();
+              break;
+            case 'load':
+              this._loadRecord(pData && pData.guid);
+              break;
+            case 'edit':
+              this.openEditModal(pData && pData.guid);
+              break;
+            case 'delete':
+              this._deleteRecord(pData && pData.guid);
+              break;
+          }
+        }
+        _loadRecord(pGUID) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          let tmpRecord = tmpProvider ? tmpProvider.get(pGUID) : null;
+          if (!tmpRecord) return;
+          // Push SQL into editor + active-query pointer.
+          let tmpEditor = this.pict.views.SQLEditor;
+          if (tmpEditor && typeof tmpEditor.setCode === 'function') {
+            tmpEditor.setCode(tmpRecord.SQL || '');
+          }
+          if (!this.pict.AppData.QueryPanel) this.pict.AppData.QueryPanel = {
+            SQL: ''
+          };
+          this.pict.AppData.QueryPanel.SQL = tmpRecord.SQL || '';
+          tmpProvider.setActiveGUID(pGUID);
+          // Auto-select the associated connection, if any.
+          if (tmpRecord.IDBeaconConnection !== null && tmpRecord.IDBeaconConnection !== undefined) {
+            this.pict.AppData.SelectedConnectionID = tmpRecord.IDBeaconConnection;
+            let tmpDBProvider = this.pict.providers.DataBeaconProvider;
+            if (tmpDBProvider && typeof tmpDBProvider.refreshIntrospectionViewData === 'function') {
+              tmpDBProvider.refreshIntrospectionViewData();
+            }
+          }
+          let tmpModal = this.pict.views.PictSectionModal;
+          if (tmpModal && typeof tmpModal.toast === 'function') {
+            tmpModal.toast(`Loaded “${tmpRecord.Name}” into the editor.`, {
+              type: 'success'
+            });
+          }
+        }
+        _deleteRecord(pGUID) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          let tmpRecord = tmpProvider ? tmpProvider.get(pGUID) : null;
+          if (!tmpRecord) return;
+          let tmpModal = this.pict.views.PictSectionModal;
+          if (!tmpModal || typeof tmpModal.confirm !== 'function') {
+            tmpProvider.remove(pGUID);
+            return;
+          }
+          tmpModal.confirm(`Delete saved query “${tmpRecord.Name}”?`, {
+            title: 'Delete Saved Query',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            dangerous: true
+          }).then(pConfirmed => {
+            if (pConfirmed) tmpProvider.remove(pGUID);
+          });
+        }
+
+        // ================================================================
+        // Save / Edit form modal (shared entry — QueryPanel calls openSaveModal)
+        // ================================================================
+
+        /**
+         * Open the save modal. If pSQL is provided it will be used as the SQL
+         * to persist (Save case from QueryPanel). If pGUID is provided and
+         * matches a saved record, the form pre-fills from it and defaults to
+         * updating that record (unless pForceNew is true).
+         *
+         * @param {Object} pOptions
+         * @param {string} [pOptions.GUID]     - Existing GUID when updating.
+         * @param {string} [pOptions.SQL]      - Override SQL; defaults to the record's SQL (Edit) or current editor text (Save).
+         * @param {boolean} [pOptions.EditMetadataOnly] - true = Edit mode (SQL read-only, metadata only); false = Save mode (SQL becomes record's SQL).
+         */
+        openSaveFormModal(pOptions) {
+          let tmpOptions = pOptions || {};
+          this._openForm({
+            Mode: tmpOptions.EditMetadataOnly ? 'edit' : 'save',
+            GUID: tmpOptions.GUID || null,
+            SQL: typeof tmpOptions.SQL === 'string' ? tmpOptions.SQL : ''
+          });
+        }
+        openEditModal(pGUID) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          let tmpRecord = tmpProvider ? tmpProvider.get(pGUID) : null;
+          if (!tmpRecord) return;
+          this._openForm({
+            Mode: 'edit',
+            GUID: pGUID,
+            SQL: tmpRecord.SQL
+          });
+        }
+        _openForm(pContext) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          let tmpModal = this.pict.views.PictSectionModal;
+          if (!tmpProvider || !tmpModal) return;
+          let tmpExisting = pContext.GUID ? tmpProvider.get(pContext.GUID) : null;
+          let tmpIsEdit = pContext.Mode === 'edit';
+          let tmpTitle = tmpIsEdit ? 'Edit Saved Query' : tmpExisting ? 'Save Query' : 'Save Query';
+
+          // Seed the form's AppData branch so the template can read it.
+          this.pict.AppData.SavedQueryForm = {
+            Mode: pContext.Mode,
+            GUID: pContext.GUID,
+            Name: tmpExisting && tmpExisting.Name || '',
+            Documentation: tmpExisting && tmpExisting.Documentation || '',
+            TagsDisplay: tmpExisting && Array.isArray(tmpExisting.Tags) ? tmpExisting.Tags.join(', ') : '',
+            SelectedConnectionID: tmpExisting && tmpExisting.IDBeaconConnection !== undefined ? tmpExisting.IDBeaconConnection : this.pict.AppData.SelectedConnectionID || null,
+            SQLDisplay: pContext.SQL || tmpExisting && tmpExisting.SQL || '',
+            ConnectionOptions: this._buildConnectionOptions(tmpExisting && tmpExisting.IDBeaconConnection !== undefined ? tmpExisting.IDBeaconConnection : this.pict.AppData.SelectedConnectionID || null)
+          };
+          let tmpContent = this.pict.parseTemplateByHash('DataBeacon-SavedQueryForm-Body', null);
+          let tmpButtons;
+          if (tmpIsEdit) {
+            tmpButtons = [{
+              Hash: 'save',
+              Label: 'Save Changes',
+              Style: 'primary'
+            }, {
+              Hash: 'cancel',
+              Label: 'Cancel',
+              Style: 'secondary'
+            }];
+          } else if (tmpExisting) {
+            // Save-with-loaded-query: offer both update-in-place and save-as-new.
+            tmpButtons = [{
+              Hash: 'save-update',
+              Label: 'Save Changes',
+              Style: 'primary'
+            }, {
+              Hash: 'save-new',
+              Label: 'Save as New',
+              Style: 'secondary'
+            }, {
+              Hash: 'cancel',
+              Label: 'Cancel',
+              Style: 'secondary'
+            }];
+          } else {
+            tmpButtons = [{
+              Hash: 'save-new',
+              Label: 'Save',
+              Style: 'primary'
+            }, {
+              Hash: 'cancel',
+              Label: 'Cancel',
+              Style: 'secondary'
+            }];
+          }
+
+          // After the modal renders, fill icon placeholders that may be inside the form body.
+          let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+          tmpModal.show({
+            title: tmpTitle,
+            content: tmpContent,
+            width: '620px',
+            closeable: true,
+            buttons: tmpButtons,
+            onOpen: () => {
+              if (tmpIcons) tmpIcons.injectIconPlaceholders('body');
+            }
+          }).then(pButtonHash => {
+            if (!pButtonHash || pButtonHash === 'cancel') return;
+            this._applyFormSubmission(pButtonHash, pContext, tmpExisting);
+          });
+        }
+        _applyFormSubmission(pButtonHash, pContext, pExisting) {
+          let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
+          if (!tmpProvider) return;
+          let tmpName = this._readValue('#databeacon-savedform-name', pExisting && pExisting.Name || '');
+          let tmpDoc = this._readValue('#databeacon-savedform-doc', pExisting && pExisting.Documentation || '');
+          let tmpTagsRaw = this._readValue('#databeacon-savedform-tags', '');
+          let tmpConnRaw = this._readValue('#databeacon-savedform-conn', '');
+          let tmpConnID = tmpConnRaw === '' || tmpConnRaw === null ? null : parseInt(tmpConnRaw, 10);
+          if (isNaN(tmpConnID)) tmpConnID = null;
+          if (pButtonHash === 'save-update' && pExisting) {
+            tmpProvider.update(pExisting.GUIDSavedQuery, {
+              Name: tmpName,
+              Documentation: tmpDoc,
+              Tags: tmpTagsRaw,
+              IDBeaconConnection: tmpConnID,
+              SQL: pContext.SQL
+            });
+            tmpProvider.setActiveGUID(pExisting.GUIDSavedQuery);
+          } else if (pButtonHash === 'save-new') {
+            let tmpNew = tmpProvider.create({
+              Name: tmpName,
+              Documentation: tmpDoc,
+              Tags: tmpTagsRaw,
+              IDBeaconConnection: tmpConnID,
+              SQL: pContext.SQL
+            });
+            if (tmpNew) tmpProvider.setActiveGUID(tmpNew.GUIDSavedQuery);
+          } else if (pButtonHash === 'save' && pContext.Mode === 'edit' && pExisting) {
+            // Edit mode — metadata only, SQL is not touched.
+            tmpProvider.update(pExisting.GUIDSavedQuery, {
+              Name: tmpName,
+              Documentation: tmpDoc,
+              Tags: tmpTagsRaw,
+              IDBeaconConnection: tmpConnID
+            });
+          }
+        }
+        _readValue(pSelector, pFallback) {
+          let tmpList = this.pict.ContentAssignment.getElement(pSelector);
+          if (!tmpList || tmpList.length === 0) return pFallback || '';
+          let tmpVal = tmpList[0].value;
+          return typeof tmpVal === 'string' ? tmpVal : pFallback || '';
+        }
+        _buildConnectionOptions(pSelectedID) {
+          let tmpConns = this.pict.AppData.Connections || [];
+          let tmpOut = [];
+          for (let i = 0; i < tmpConns.length; i++) {
+            tmpOut.push({
+              IDBeaconConnection: tmpConns[i].IDBeaconConnection,
+              Label: `${tmpConns[i].Name} (${tmpConns[i].Type})`,
+              SelectedAttr: tmpConns[i].IDBeaconConnection === pSelectedID ? 'selected' : ''
+            });
+          }
+          return tmpOut;
+        }
+      }
+      module.exports = PictViewDataBeaconSavedQueriesList;
+      module.exports.default_configuration = _ViewConfiguration;
+    }, {
+      "pict-view": 21
+    }],
+    44: [function (require, module, exports) {
       /**
        * DataBeacon ThemeSwitcher View
        *
