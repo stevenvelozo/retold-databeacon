@@ -1,0 +1,11 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "static-web",
+			"runtimeExecutable": "npx",
+			"runtimeArgs": ["http-server", "source/services/web-app/web", "-p", "4123", "-c-1", "--silent"],
+			"port": 4123
+		}
+	]
+}

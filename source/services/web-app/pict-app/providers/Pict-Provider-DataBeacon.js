@@ -1,7 +1,10 @@
 /**
  * Retold DataBeacon — API Provider
  *
- * Pict provider for making REST API calls to the DataBeacon server.
+ * Calls the DataBeacon REST API, stores results in AppData, and pre-computes
+ * render-ready view data (status labels, badge classes, per-row flags, etc.)
+ * so the Pict templates can stay declarative. After each API response the
+ * appropriate sub-views are re-rendered.
  */
 const libPictProvider = require('pict-view');
 
@@ -49,10 +52,14 @@ class DataBeaconProvider extends libPictProvider
 			{
 				if (!pError && pData)
 				{
-					this.pict.AppData.Connections = pData.Connections || [];
+					this.pict.AppData.Connections = this._decorateConnections(pData.Connections || []);
 				}
-				if (this.pict.views.Dashboard) this.pict.views.Dashboard.render();
-				if (this.pict.views.Connections) this.pict.views.Connections.render();
+				this._recomputeDashboard();
+				this.refreshIntrospectionViewData();
+				this.refreshRecordBrowserViewData();
+				this._renderConnectionViews();
+				this._renderDashboard();
+				this._renderIntrospectionViews();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -62,10 +69,7 @@ class DataBeaconProvider extends libPictProvider
 		this._apiCall('POST', '/beacon/connection', pConnectionData,
 			(pError, pData) =>
 			{
-				if (!pError && pData && pData.Success)
-				{
-					this.loadConnections();
-				}
+				if (!pError && pData && pData.Success) this.loadConnections();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -75,10 +79,7 @@ class DataBeaconProvider extends libPictProvider
 		this._apiCall('PUT', `/beacon/connection/${pID}`, pConnectionData,
 			(pError, pData) =>
 			{
-				if (!pError && pData && pData.Success)
-				{
-					this.loadConnections();
-				}
+				if (!pError && pData && pData.Success) this.loadConnections();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -88,10 +89,7 @@ class DataBeaconProvider extends libPictProvider
 		this._apiCall('DELETE', `/beacon/connection/${pID}`, null,
 			(pError, pData) =>
 			{
-				if (!pError && pData && pData.Success)
-				{
-					this.loadConnections();
-				}
+				if (!pError && pData && pData.Success) this.loadConnections();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -134,7 +132,9 @@ class DataBeaconProvider extends libPictProvider
 				if (!pError && pData)
 				{
 					this.pict.AppData.AvailableTypes = pData.Types || [];
+					this.pict.AppData.AvailableTypesForForm = this._buildAvailableTypesForForm(this.pict.AppData.AvailableTypes);
 				}
+				if (this.pict.views.ConnectionForm) this.pict.views.ConnectionForm.render();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -166,7 +166,8 @@ class DataBeaconProvider extends libPictProvider
 					this.pict.AppData.Tables = pData.Tables || [];
 					this.pict.AppData.SelectedConnectionID = pConnectionID;
 				}
-				if (this.pict.views.Introspection) this.pict.views.Introspection.render();
+				this.refreshIntrospectionViewData();
+				this._renderIntrospectionViews();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -222,10 +223,13 @@ class DataBeaconProvider extends libPictProvider
 			{
 				if (!pError && pData)
 				{
-					this.pict.AppData.Endpoints = pData.Endpoints || [];
+					this.pict.AppData.Endpoints = this._decorateEndpoints(pData.Endpoints || []);
 				}
+				this._recomputeDashboard();
+				this.refreshRecordBrowserViewData();
 				if (this.pict.views.Endpoints) this.pict.views.Endpoints.render();
-				if (this.pict.views.Dashboard) this.pict.views.Dashboard.render();
+				this._renderDashboard();
+				if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
 				if (fCallback) fCallback(pError, pData);
 			});
 	}
@@ -234,9 +238,18 @@ class DataBeaconProvider extends libPictProvider
 	// Records
 	// ================================================================
 
-	loadRecords(pTableName, pCap, fCallback)
+	loadRecords(pTableName, pStart, pCap, fCallback)
 	{
-		this._apiCall('GET', `/1.0/${pTableName}s/0/${pCap || 50}`, null,
+		let tmpStart = this._toNonNegativeInt(pStart, 0);
+		let tmpCap = this._toPositiveInt(pCap, 50);
+
+		// Track the fetch intent so the view-data computation can decide the
+		// Prev/Next state + range label even if the response is empty.
+		if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
+		this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
+		this.pict.AppData.RecordBrowser.PageSize = tmpCap;
+
+		this._apiCall('GET', `/1.0/${pTableName}s/${tmpStart}/${tmpCap}`, null,
 			(pError, pData) =>
 			{
 				if (!pError && pData)
@@ -244,9 +257,24 @@ class DataBeaconProvider extends libPictProvider
 					this.pict.AppData.Records = Array.isArray(pData) ? pData : (pData.Records || []);
 					this.pict.AppData.SelectedTableName = pTableName;
 				}
-				if (this.pict.views.Records) this.pict.views.Records.render();
+				this.refreshRecordBrowserViewData();
+				if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
 				if (fCallback) fCallback(pError, pData);
 			});
+	}
+
+	_toNonNegativeInt(pValue, pDefault)
+	{
+		let tmpN = parseInt(pValue, 10);
+		if (isNaN(tmpN) || tmpN < 0) return pDefault;
+		return tmpN;
+	}
+
+	_toPositiveInt(pValue, pDefault)
+	{
+		let tmpN = parseInt(pValue, 10);
+		if (isNaN(tmpN) || tmpN < 1) return pDefault;
+		return tmpN;
 	}
 
 	// ================================================================
@@ -278,13 +306,403 @@ class DataBeaconProvider extends libPictProvider
 		this._apiCall('GET', '/beacon/ultravisor/status', null,
 			(pError, pData) =>
 			{
-				if (!pError && pData)
-				{
-					this.pict.AppData.BeaconStatus = pData;
-				}
-				if (this.pict.views.Dashboard) this.pict.views.Dashboard.render();
+				if (!pError && pData) this.pict.AppData.BeaconStatus = pData;
+				this._recomputeDashboard();
+				this._renderDashboard();
 				if (fCallback) fCallback(pError, pData);
 			});
+	}
+
+	// ================================================================
+	// View data computation (public helpers + internal)
+	// ================================================================
+
+	/**
+	 * Recompute AppData.Introspection based on current Connections/Tables.
+	 * Auto-selects the sole connected database when nothing is selected.
+	 * Safe to call repeatedly and in response to any data change.
+	 */
+	refreshIntrospectionViewData()
+	{
+		let tmpConns = this.pict.AppData.Connections || [];
+		let tmpTables = this.pict.AppData.Tables || [];
+		let tmpCID = this.pict.AppData.SelectedConnectionID;
+
+		// Connected-only list for the picker.
+		let tmpConnectedList = [];
+		for (let i = 0; i < tmpConns.length; i++)
+		{
+			if (tmpConns[i].Connected) tmpConnectedList.push(tmpConns[i]);
+		}
+
+		// Auto-select sole connection.
+		if (!tmpCID && tmpConnectedList.length === 1)
+		{
+			tmpCID = tmpConnectedList[0].IDBeaconConnection;
+			this.pict.AppData.SelectedConnectionID = tmpCID;
+		}
+
+		// Decorate connection list with SelectedAttr for the dropdown.
+		let tmpListForTemplate = [];
+		for (let i = 0; i < tmpConnectedList.length; i++)
+		{
+			let tmpConn = tmpConnectedList[i];
+			tmpListForTemplate.push(
+			{
+				IDBeaconConnection: tmpConn.IDBeaconConnection,
+				Name: tmpConn.Name,
+				Type: tmpConn.Type,
+				SelectedAttr: (tmpConn.IDBeaconConnection === tmpCID) ? 'selected' : ''
+			});
+		}
+
+		let tmpSelectedConn = null;
+		for (let i = 0; i < tmpConns.length; i++)
+		{
+			if (tmpConns[i].IDBeaconConnection === tmpCID) { tmpSelectedConn = tmpConns[i]; break; }
+		}
+
+		let tmpBanner = null;
+		if (tmpSelectedConn)
+		{
+			tmpBanner =
+			{
+				Name: tmpSelectedConn.Name,
+				Type: tmpSelectedConn.Type,
+				StatusLabel: tmpSelectedConn.StatusLabel,
+				StatusBadgeClass: tmpSelectedConn.StatusBadgeClass,
+				Description: tmpSelectedConn.Description || '',
+				HasDescription: !!tmpSelectedConn.Description
+			};
+		}
+
+		// Table rows view shape.
+		let tmpTablesView = [];
+		for (let i = 0; i < tmpTables.length; i++)
+		{
+			let tmpTable = tmpTables[i];
+			tmpTablesView.push(
+			{
+				ConnectionID: tmpCID,
+				TableName: tmpTable.TableName,
+				ColumnCount: tmpTable.ColumnCount,
+				RowCountDisplay: (tmpTable.RowCountEstimate === null || tmpTable.RowCountEstimate === undefined) ? '--' : tmpTable.RowCountEstimate,
+				EndpointsEnabled: !!tmpTable.EndpointsEnabled
+			});
+		}
+
+		let tmpState;
+		if (tmpConnectedList.length === 0) tmpState = 'NoConnections';
+		else if (!tmpCID) tmpState = 'NoSelection';
+		else if (tmpTablesView.length === 0) tmpState = 'Empty';
+		else tmpState = 'HasTables';
+
+		let tmpTablesHeader = null;
+		if (tmpState === 'HasTables' && tmpSelectedConn)
+		{
+			let tmpCount = tmpTablesView.length;
+			tmpTablesHeader =
+			{
+				ConnectionName: tmpSelectedConn.Name,
+				Subline: `${tmpSelectedConn.Type} \u00B7 ${tmpCount} table${tmpCount !== 1 ? 's' : ''} discovered`
+			};
+		}
+
+		let tmpShowPlaceholder = (tmpConnectedList.length !== 1) || !tmpCID;
+
+		this.pict.AppData.Introspection =
+		{
+			ConnectedList: tmpListForTemplate,
+			ShowPlaceholder: tmpShowPlaceholder,
+			HasSelection: !!tmpSelectedConn,
+			SelectedBanner: tmpBanner,
+			RunDisabled: !tmpCID,
+			AllDisabled: tmpConnectedList.length === 0,
+			State: tmpState,
+			TablesView: tmpTablesView,
+			TablesHeader: tmpTablesHeader,
+			DetailModalColumns: (this.pict.AppData.Introspection && this.pict.AppData.Introspection.DetailModalColumns) || []
+		};
+	}
+
+	/**
+	 * Recompute AppData.RecordBrowser based on current Endpoints/Records
+	 * and the persisted CursorStart / PageSize. Preserves the caller's
+	 * cursor/size preferences across fetches.
+	 */
+	refreshRecordBrowserViewData()
+	{
+		let tmpEndpoints = this.pict.AppData.Endpoints || [];
+		let tmpRecords = this.pict.AppData.Records || [];
+		let tmpSelectedTable = this.pict.AppData.SelectedTableName || '';
+
+		let tmpPrev = this.pict.AppData.RecordBrowser || {};
+		let tmpCursorStart = this._toNonNegativeInt(tmpPrev.CursorStart, 0);
+		let tmpPageSize = this._toPositiveInt(tmpPrev.PageSize, 50);
+
+		let tmpTableOptions = [];
+		for (let i = 0; i < tmpEndpoints.length; i++)
+		{
+			tmpTableOptions.push(
+			{
+				TableName: tmpEndpoints[i].TableName,
+				SelectedAttr: (tmpEndpoints[i].TableName === tmpSelectedTable) ? 'selected' : ''
+			});
+		}
+
+		let tmpPageSizeOptions = this._buildPageSizeOptions(tmpPageSize);
+
+		let tmpState;
+		let tmpColumnList = [];
+		let tmpRows = [];
+		let tmpFetched = tmpRecords.length;
+
+		if (!tmpSelectedTable) tmpState = 'NoSelection';
+		else if (tmpFetched === 0) tmpState = 'Empty';
+		else
+		{
+			tmpState = 'HasRows';
+			let tmpColumnNames = Object.keys(tmpRecords[0] || {});
+			for (let c = 0; c < tmpColumnNames.length; c++) tmpColumnList.push({ Name: tmpColumnNames[c] });
+			for (let r = 0; r < tmpFetched; r++)
+			{
+				let tmpCells = [];
+				for (let c = 0; c < tmpColumnNames.length; c++)
+				{
+					tmpCells.push({ CellHTML: this._formatCellValue(tmpRecords[r][tmpColumnNames[c]]) });
+				}
+				tmpRows.push({ Cells: tmpCells });
+			}
+		}
+
+		let tmpPrevDisabled = !tmpSelectedTable || tmpCursorStart === 0;
+		// "Probably more pages" when the server returned a full page. An
+		// exactly-full last page over-counts by one page and shows an empty
+		// Next; that's an acceptable trade for not needing a COUNT(*) call.
+		let tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize;
+
+		let tmpRangeLabel;
+		if (!tmpSelectedTable) tmpRangeLabel = '';
+		else if (tmpFetched === 0) tmpRangeLabel = `No records at start ${tmpCursorStart}.`;
+		else tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpCursorStart + tmpFetched} · Page size ${tmpPageSize}`;
+
+		this.pict.AppData.RecordBrowser =
+		{
+			TableOptions: tmpTableOptions,
+			PageSizeOptions: tmpPageSizeOptions,
+			SelectedTableName: tmpSelectedTable,
+			TableName: tmpSelectedTable,
+			CursorStart: tmpCursorStart,
+			PageSize: tmpPageSize,
+			PrevDisabled: tmpPrevDisabled,
+			NextDisabled: tmpNextDisabled,
+			LoadDisabled: !tmpSelectedTable,
+			RangeLabel: tmpRangeLabel,
+			State: tmpState,
+			ColumnList: tmpColumnList,
+			Rows: tmpRows
+		};
+	}
+
+	_buildPageSizeOptions(pCurrent)
+	{
+		let tmpChoices = [ 10, 25, 50, 100, 200, 500 ];
+		if (tmpChoices.indexOf(pCurrent) === -1) tmpChoices.push(pCurrent);
+		tmpChoices.sort((a, b) => a - b);
+		let tmpResult = [];
+		for (let i = 0; i < tmpChoices.length; i++)
+		{
+			tmpResult.push(
+			{
+				Value: tmpChoices[i],
+				SelectedAttr: (tmpChoices[i] === pCurrent) ? 'selected' : ''
+			});
+		}
+		return tmpResult;
+	}
+
+	/**
+	 * Build a view-ready AppData.QueryPanel structure from raw rows returned
+	 * by executeQuery(). Called by the QueryPanel view after a successful
+	 * response.
+	 * @param {Array<Object>} pRows
+	 * @returns {Object}
+	 */
+	buildQueryResultViewData(pRows)
+	{
+		let tmpColumnList = [];
+		let tmpRowList = [];
+		let tmpColumnNames = (pRows && pRows.length > 0) ? Object.keys(pRows[0]) : [];
+		for (let c = 0; c < tmpColumnNames.length; c++) tmpColumnList.push({ Name: tmpColumnNames[c] });
+		let tmpLimit = Math.min(pRows.length, 100);
+		for (let r = 0; r < tmpLimit; r++)
+		{
+			let tmpCells = [];
+			for (let c = 0; c < tmpColumnNames.length; c++)
+			{
+				tmpCells.push({ CellHTML: this._formatCellValue(pRows[r][tmpColumnNames[c]]) });
+			}
+			tmpRowList.push({ Cells: tmpCells });
+		}
+		return {
+			ColumnList: tmpColumnList,
+			Rows: tmpRowList,
+			DisplayCount: tmpLimit,
+			TotalCount: pRows.length,
+			IsTruncated: pRows.length > 100
+		};
+	}
+
+	/**
+	 * HTML-escape a string. Exposed so views can safely interpolate error
+	 * messages into error banners.
+	 * @param {string} pValue
+	 * @returns {string}
+	 */
+	escapeHTML(pValue)
+	{
+		let tmpStr = (pValue === null || pValue === undefined) ? '' : String(pValue);
+		return tmpStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+	}
+
+	// ================================================================
+	// Private decorators
+	// ================================================================
+
+	_decorateConnections(pConnections)
+	{
+		let tmpResult = [];
+		for (let i = 0; i < pConnections.length; i++)
+		{
+			let tmpConn = pConnections[i];
+			let tmpIsConnected = !!tmpConn.Connected;
+			let tmpStatusLabel;
+			let tmpStatusBadgeClass;
+			if (tmpIsConnected)
+			{
+				tmpStatusLabel = 'Connected';
+				tmpStatusBadgeClass = 'badge-success';
+			}
+			else if (tmpConn.Status === 'OK')
+			{
+				tmpStatusLabel = 'OK';
+				tmpStatusBadgeClass = 'badge-info';
+			}
+			else if (tmpConn.Status === 'Failed')
+			{
+				tmpStatusLabel = 'Failed';
+				tmpStatusBadgeClass = 'badge-error';
+			}
+			else
+			{
+				tmpStatusLabel = tmpConn.Status || 'Unknown';
+				tmpStatusBadgeClass = 'badge-neutral';
+			}
+
+			tmpResult.push(Object.assign({}, tmpConn,
+			{
+				Connected: tmpIsConnected,
+				StatusLabel: tmpStatusLabel,
+				StatusBadgeClass: tmpStatusBadgeClass,
+				Description: tmpConn.Description || ''
+			}));
+		}
+		return tmpResult;
+	}
+
+	_decorateEndpoints(pEndpoints)
+	{
+		let tmpResult = [];
+		for (let i = 0; i < pEndpoints.length; i++)
+		{
+			let tmpEP = pEndpoints[i];
+			let tmpBase = tmpEP.EndpointBase || '';
+			tmpResult.push(Object.assign({}, tmpEP,
+			{
+				EndpointAPIURL: `${tmpBase}s/0/50`
+			}));
+		}
+		return tmpResult;
+	}
+
+	_buildAvailableTypesForForm(pTypes)
+	{
+		let tmpInstalled = [];
+		for (let i = 0; i < pTypes.length; i++)
+		{
+			if (pTypes[i].Installed) tmpInstalled.push({ Type: pTypes[i].Type });
+		}
+		if (tmpInstalled.length === 0)
+		{
+			tmpInstalled = [ { Type: 'MySQL' }, { Type: 'PostgreSQL' }, { Type: 'MSSQL' }, { Type: 'SQLite' } ];
+		}
+		return tmpInstalled;
+	}
+
+	_recomputeDashboard()
+	{
+		let tmpConns = this.pict.AppData.Connections || [];
+		let tmpEndpoints = this.pict.AppData.Endpoints || [];
+		let tmpBeaconStatus = this.pict.AppData.BeaconStatus || {};
+
+		let tmpActive = 0;
+		let tmpSummary = [];
+		for (let i = 0; i < tmpConns.length; i++)
+		{
+			if (tmpConns[i].Connected) tmpActive++;
+			tmpSummary.push(
+			{
+				Name: tmpConns[i].Name,
+				Type: tmpConns[i].Type,
+				StatusLabel: tmpConns[i].StatusLabel,
+				StatusBadgeClass: tmpConns[i].StatusBadgeClass,
+				Description: tmpConns[i].Description
+			});
+		}
+
+		this.pict.AppData.Dashboard =
+		{
+			TotalConnections: tmpConns.length,
+			ActiveConnections: tmpActive,
+			TotalEndpoints: tmpEndpoints.length,
+			BeaconStatusLabel: tmpBeaconStatus.Connected ? 'Connected' : 'Not Connected',
+			BeaconBadgeClass: tmpBeaconStatus.Connected ? 'badge-success' : 'badge-neutral',
+			BeaconName: tmpBeaconStatus.BeaconName || 'retold-databeacon',
+			ConnectionSummary: tmpSummary
+		};
+	}
+
+	_formatCellValue(pValue)
+	{
+		if (pValue === null || pValue === undefined)
+		{
+			return '<span class="null-value">NULL</span>';
+		}
+		if (typeof pValue === 'object')
+		{
+			let tmpText = JSON.stringify(pValue);
+			if (tmpText.length > 80) tmpText = tmpText.substring(0, 80) + '...';
+			return `<code>${this.escapeHTML(tmpText)}</code>`;
+		}
+		let tmpStr = String(pValue);
+		if (tmpStr.length > 100) tmpStr = tmpStr.substring(0, 100) + '...';
+		return this.escapeHTML(tmpStr);
+	}
+
+	_renderConnectionViews()
+	{
+		if (this.pict.views.ConnectionList) this.pict.views.ConnectionList.render();
+	}
+
+	_renderDashboard()
+	{
+		if (this.pict.views.Dashboard) this.pict.views.Dashboard.render();
+	}
+
+	_renderIntrospectionViews()
+	{
+		if (this.pict.views.IntrospectionControls) this.pict.views.IntrospectionControls.render();
+		if (this.pict.views.IntrospectionTables) this.pict.views.IntrospectionTables.render();
 	}
 }
 

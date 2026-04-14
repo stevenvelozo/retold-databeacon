@@ -1,34 +1,60 @@
 /**
  * DataBeacon Layout View
  *
- * Shell layout with sidebar navigation and content container.
+ * Shell: fixed left sidebar with navigation, plus a set of mount-point
+ * panels for each page view. Each page view renders into its dedicated
+ * `#DataBeacon-View-<Name>` panel.
+ *
+ * Navigation, active-state tracking, and CSS injection live here (the
+ * layout is the only view that owns the chrome).
  */
 const libPictView = require('pict-view');
 
-const _LayoutTemplate = `
+const _NavItems =
+[
+	{ View: 'Dashboard',     Label: 'Dashboard',     Icon: 'dashboard' },
+	{ View: 'Connections',   Label: 'Connections',   Icon: 'connections' },
+	{ View: 'Introspection', Label: 'Introspection', Icon: 'introspection' },
+	{ View: 'Endpoints',     Label: 'Endpoints',     Icon: 'endpoints' },
+	{ View: 'Records',       Label: 'Records',       Icon: 'records' },
+	{ View: 'SQL',           Label: 'SQL',           Icon: 'terminal' }
+];
+
+const _ViewConfiguration =
+{
+	ViewIdentifier: 'Layout',
+	DefaultRenderable: 'DataBeacon-Layout',
+	DefaultDestinationAddress: '#DataBeacon-App',
+	AutoRender: false,
+
+	CSS: /*css*/`
+		.sidebar-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+		.sidebar-header-text { flex: 1 1 auto; min-width: 0; }
+		.sidebar-header-controls { flex: 0 0 auto; }
+		.nav-item { display: flex; align-items: center; gap: 10px; }
+		.nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
+		.nav-icon svg { display: block; }
+		.nav-label { line-height: 1; }
+		.btn [data-databeacon-icon] { display: inline-flex; align-items: center; margin-right: 6px; vertical-align: middle; }
+		.btn [data-databeacon-icon] svg { display: block; }
+		.actions-cell .btn { display: inline-flex; align-items: center; }
+	`,
+
+	Templates:
+	[
+		{
+			Hash: 'DataBeacon-Layout-Shell',
+			Template: /*html*/`
 <div class="app-container">
 	<div class="sidebar">
 		<div class="sidebar-header">
-			<h2>DataBeacon</h2>
-			<span class="version">v0.0.1</span>
+			<div class="sidebar-header-text">
+				<h2>DataBeacon</h2>
+				<span class="version">v0.0.1</span>
+			</div>
+			<div class="sidebar-header-controls" id="DataBeacon-ThemeSwitcher-Slot"></div>
 		</div>
-		<nav class="sidebar-nav">
-			<div class="nav-item active" data-view="Dashboard" onclick="window.DataBeaconApp.navigateTo('Dashboard')">
-				<span class="nav-icon">&#9632;</span> Dashboard
-			</div>
-			<div class="nav-item" data-view="Connections" onclick="window.DataBeaconApp.navigateTo('Connections')">
-				<span class="nav-icon">&#9672;</span> Connections
-			</div>
-			<div class="nav-item" data-view="Introspection" onclick="window.DataBeaconApp.navigateTo('Introspection')">
-				<span class="nav-icon">&#9881;</span> Introspection
-			</div>
-			<div class="nav-item" data-view="Endpoints" onclick="window.DataBeaconApp.navigateTo('Endpoints')">
-				<span class="nav-icon">&#9889;</span> Endpoints
-			</div>
-			<div class="nav-item" data-view="Records" onclick="window.DataBeaconApp.navigateTo('Records')">
-				<span class="nav-icon">&#9776;</span> Records
-			</div>
-		</nav>
+		<nav class="sidebar-nav" id="DataBeacon-Sidebar-Nav">{~TS:DataBeacon-Layout-NavItem:AppData.Layout.NavItems~}</nav>
 	</div>
 	<div class="main-content">
 		<div id="DataBeacon-View-Dashboard" class="view-panel"></div>
@@ -36,23 +62,17 @@ const _LayoutTemplate = `
 		<div id="DataBeacon-View-Introspection" class="view-panel" style="display:none;"></div>
 		<div id="DataBeacon-View-Endpoints" class="view-panel" style="display:none;"></div>
 		<div id="DataBeacon-View-Records" class="view-panel" style="display:none;"></div>
+		<div id="DataBeacon-View-SQL" class="view-panel" style="display:none;"></div>
 	</div>
-</div>`;
-
-const _ViewConfiguration =
-{
-	ViewIdentifier: 'Layout',
-
-	DefaultRenderable: 'DataBeacon-Layout',
-	DefaultDestinationAddress: '#DataBeacon-App',
-
-	AutoRender: false,
-
-	Templates:
-	[
+</div>`
+		},
 		{
-			Hash: 'DataBeacon-Layout-Template',
-			Template: _LayoutTemplate
+			Hash: 'DataBeacon-Layout-NavItem',
+			Template: /*html*/`
+<div class="nav-item" data-databeacon-action="navigate" data-view="{~D:Record.View~}" data-view-nav="{~D:Record.View~}">
+	<span class="nav-icon" data-databeacon-icon="{~D:Record.Icon~}" data-icon-size="20"></span>
+	<span class="nav-label">{~D:Record.Label~}</span>
+</div>`
 		}
 	],
 
@@ -60,8 +80,9 @@ const _ViewConfiguration =
 	[
 		{
 			RenderableHash: 'DataBeacon-Layout',
-			TemplateHash: 'DataBeacon-Layout-Template',
-			DestinationAddress: '#DataBeacon-App'
+			TemplateHash: 'DataBeacon-Layout-Shell',
+			ContentDestinationAddress: '#DataBeacon-App',
+			RenderMethod: 'replace'
 		}
 	]
 };
@@ -71,6 +92,87 @@ class PictViewDataBeaconLayout extends libPictView
 	constructor(pFable, pOptions, pServiceHash)
 	{
 		super(pFable, pOptions, pServiceHash);
+	}
+
+	onBeforeRender(pRenderable)
+	{
+		// Publish the nav-item list so the template can iterate over it.
+		if (!this.pict.AppData.Layout) this.pict.AppData.Layout = {};
+		this.pict.AppData.Layout.NavItems = _NavItems;
+		return super.onBeforeRender(pRenderable);
+	}
+
+	onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent)
+	{
+		// Fill SVG icon placeholders in the sidebar (and anywhere else the layout owns).
+		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-App');
+
+		// Mount the theme-switcher widget into its sidebar-header slot.
+		if (this.pict.views.ThemeSwitcher) this.pict.views.ThemeSwitcher.render();
+
+		// Wire a single delegated click handler on the sidebar; the layout
+		// only renders when navigation state changes, so attaching on every
+		// render is cheap and correct (previous nav DOM is gone).
+		let tmpNavList = this.pict.ContentAssignment.getElement('#DataBeacon-Sidebar-Nav');
+		if (tmpNavList && tmpNavList.length > 0)
+		{
+			tmpNavList[0].addEventListener('click', (pEvent) =>
+			{
+				let tmpBtn = pEvent.target.closest('[data-databeacon-action="navigate"]');
+				if (!tmpBtn) return;
+				let tmpViewName = tmpBtn.getAttribute('data-view');
+				if (tmpViewName) this.setActiveView(tmpViewName);
+			});
+		}
+
+		// Ensure every view's CSS (including pict-section-modal's) is in the DOM.
+		if (this.pict.CSSMap && typeof this.pict.CSSMap.injectCSS === 'function')
+		{
+			this.pict.CSSMap.injectCSS();
+		}
+
+		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
+	}
+
+	/**
+	 * Switch the visible page panel and nav highlight, then trigger
+	 * the target view's render so it has fresh data on display.
+	 * @param {string} pViewName
+	 */
+	setActiveView(pViewName)
+	{
+		this.pict.AppData.CurrentView = pViewName;
+
+		// Toggle panel visibility.
+		for (let i = 0; i < _NavItems.length; i++)
+		{
+			let tmpName = _NavItems[i].View;
+			let tmpPanelList = this.pict.ContentAssignment.getElement(`#DataBeacon-View-${tmpName}`);
+			if (tmpPanelList && tmpPanelList.length > 0)
+			{
+				tmpPanelList[0].style.display = (tmpName === pViewName) ? 'block' : 'none';
+			}
+		}
+
+		// Toggle .active on the nav items.
+		let tmpNavItems = this.pict.ContentAssignment.getElement('[data-view-nav]');
+		if (tmpNavItems && tmpNavItems.length)
+		{
+			for (let i = 0; i < tmpNavItems.length; i++)
+			{
+				let tmpName = tmpNavItems[i].getAttribute('data-view-nav');
+				if (tmpName === pViewName) tmpNavItems[i].classList.add('active');
+				else tmpNavItems[i].classList.remove('active');
+			}
+		}
+
+		// Render the active page view (container pages cascade to sub-views).
+		let tmpView = this.pict.views[pViewName];
+		if (tmpView && typeof tmpView.render === 'function')
+		{
+			tmpView.render();
+		}
 	}
 }
 

@@ -1,5 +1,9 @@
 /**
  * DataBeacon Endpoints View
+ *
+ * Lists active REST endpoints with Browse / API / Refresh actions. The
+ * provider pre-computes each endpoint's API URL (EndpointAPIURL) so the
+ * template can emit `data-api-url` without JS concatenation.
  */
 const libPictView = require('pict-view');
 
@@ -9,8 +13,72 @@ const _ViewConfiguration =
 	DefaultRenderable: 'DataBeacon-Endpoints',
 	DefaultDestinationAddress: '#DataBeacon-View-Endpoints',
 	AutoRender: false,
-	Templates: [{ Hash: 'DataBeacon-Endpoints-Template', Template: '<div id="DataBeacon-Endpoints-Content" class="endpoints-view"></div>' }],
-	Renderables: [{ RenderableHash: 'DataBeacon-Endpoints', TemplateHash: 'DataBeacon-Endpoints-Template', DestinationAddress: '#DataBeacon-View-Endpoints' }]
+
+	Templates:
+	[
+		{
+			Hash: 'DataBeacon-Endpoints-Template',
+			Template: /*html*/`
+<div id="DataBeacon-Endpoints-Root" class="endpoints-view">
+	<h1>Active REST Endpoints</h1>
+	<div class="section">
+		<div class="button-row">
+			<button class="btn btn-secondary" data-databeacon-action="refresh">
+				<span data-databeacon-icon="refresh" data-icon-size="16"></span>
+				Refresh
+			</button>
+		</div>
+	</div>
+	{~TemplateIfAbsolute:DataBeacon-Endpoints-Empty:AppData.Endpoints:AppData.Endpoints.length^==^0~}
+	{~TemplateIfAbsolute:DataBeacon-Endpoints-Table:AppData.Endpoints:AppData.Endpoints.length^>^0~}
+</div>`
+		},
+		{
+			Hash: 'DataBeacon-Endpoints-Empty',
+			Template: `<p class="empty-state">No dynamic endpoints enabled yet.</p>`
+		},
+		{
+			Hash: 'DataBeacon-Endpoints-Table',
+			Template: /*html*/`
+<div class="section">
+	<h2>Endpoints ({~D:AppData.Endpoints.length:0~})</h2>
+	<table class="data-table">
+		<thead><tr><th>Table</th><th>Type</th><th>Base</th><th>Actions</th></tr></thead>
+		<tbody>{~TS:DataBeacon-Endpoints-Row:AppData.Endpoints~}</tbody>
+	</table>
+	<div class="help-text">
+		<p>CRUD: GET /1.0/{Table}s/{Begin}/{Cap}, GET /1.0/{Table}/{ID}, POST/PUT/DEL /1.0/{Table}</p>
+	</div>
+</div>`
+		},
+		{
+			Hash: 'DataBeacon-Endpoints-Row',
+			Template: /*html*/`
+<tr>
+	<td><strong>{~D:Record.TableName~}</strong></td>
+	<td>{~D:Record.ConnectionType~}</td>
+	<td><code>{~D:Record.EndpointBase~}</code></td>
+	<td class="actions-cell">
+		<button class="btn btn-small btn-primary" data-databeacon-action="browse" data-table-name="{~D:Record.TableName~}">
+			<span data-databeacon-icon="eye" data-icon-size="14"></span> Browse
+		</button>
+		<button class="btn btn-small btn-secondary" data-databeacon-action="open-api" data-api-url="{~D:Record.EndpointAPIURL~}">
+			<span data-databeacon-icon="external-link" data-icon-size="14"></span> API
+		</button>
+	</td>
+</tr>`
+		}
+	],
+
+	Renderables:
+	[
+		{
+			RenderableHash: 'DataBeacon-Endpoints',
+			TemplateHash: 'DataBeacon-Endpoints-Template',
+			ContentDestinationAddress: '#DataBeacon-View-Endpoints',
+			RenderMethod: 'replace'
+		}
+	]
 };
 
 class PictViewDataBeaconEndpoints extends libPictView
@@ -20,34 +88,49 @@ class PictViewDataBeaconEndpoints extends libPictView
 		super(pFable, pOptions, pServiceHash);
 	}
 
-	onAfterRender()
+	onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent)
 	{
-		let tmpEndpoints = this.pict.AppData.Endpoints || [];
+		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
+		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-Endpoints-Root');
 
-		let tmpHTML = `
-	<h1>Active REST Endpoints</h1>
-	<div class="section"><div class="button-row"><button class="btn btn-secondary" onclick="DataBeacon_refreshEndpoints()">Refresh</button></div></div>
-	${tmpEndpoints.length > 0 ? this._renderList(tmpEndpoints) : '<p class="empty-state">No dynamic endpoints enabled yet.</p>'}`;
+		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-Endpoints-Root');
+		if (tmpRootList && tmpRootList.length > 0)
+		{
+			tmpRootList[0].addEventListener('click', (pEvent) =>
+			{
+				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
+				if (!tmpBtn) return;
+				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
+			});
+		}
 
-		let tmpEl = document.getElementById('DataBeacon-Endpoints-Content');
-		if (tmpEl) tmpEl.innerHTML = tmpHTML;
-
-		window.DataBeacon_refreshEndpoints = () => { this.pict.providers.DataBeaconProvider.loadEndpoints(); };
-		window.DataBeacon_browseEndpoint = (t) => { this.pict.AppData.SelectedTableName=t; this.pict.providers.DataBeaconProvider.loadRecords(t,50); window.DataBeaconApp.navigateTo('Records'); };
-		window.DataBeacon_openEndpoint = (u) => { window.open(u,'_blank'); };
-
-		return super.onAfterRender();
+		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
-	_renderList(pEndpoints)
+	_handleAction(pAction, pData)
 	{
-		let rows = '';
-		for (let i = 0; i < pEndpoints.length; i++)
+		let tmpProvider = this.pict.providers.DataBeaconProvider;
+		switch (pAction)
 		{
-			let ep = pEndpoints[i];
-			rows += `<tr><td><strong>${ep.TableName}</strong></td><td>${ep.ConnectionType}</td><td><code>${ep.EndpointBase}</code></td><td class="actions-cell"><button class="btn btn-small btn-primary" onclick="DataBeacon_browseEndpoint('${ep.TableName}')">Browse</button> <button class="btn btn-small btn-secondary" onclick="DataBeacon_openEndpoint('${ep.EndpointBase}s/0/50')">API</button></td></tr>`;
+			case 'refresh':
+				tmpProvider.loadEndpoints();
+				break;
+			case 'browse':
+				if (pData.tableName)
+				{
+					this.pict.AppData.SelectedTableName = pData.tableName;
+					// Always restart paging from row 0 when jumping from Endpoints.
+					if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
+					this.pict.AppData.RecordBrowser.CursorStart = 0;
+					let tmpPageSize = this.pict.AppData.RecordBrowser.PageSize || 50;
+					tmpProvider.loadRecords(pData.tableName, 0, tmpPageSize);
+					if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Records');
+				}
+				break;
+			case 'open-api':
+				if (pData.apiUrl) window.open(pData.apiUrl, '_blank');
+				break;
 		}
-		return `<div class="section"><h2>Endpoints (${pEndpoints.length})</h2><table class="data-table"><thead><tr><th>Table</th><th>Type</th><th>Base</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table><div class="help-text"><p>CRUD: GET /1.0/{Table}s/{Begin}/{Cap}, GET /1.0/{Table}/{ID}, POST/PUT/DEL /1.0/{Table}</p></div></div>`;
 	}
 }
 

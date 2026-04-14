@@ -1,21 +1,32 @@
-/* Retold DataBeacon — Web UI Styles */
-
+/* Retold DataBeacon — Web UI Styles
+ *
+ * Palette (--bg-*, --text-*, --accent-*, --border-color, --text-on-accent)
+ * is defined per-theme in Pict-Provider-DataBeacon-Theme-CSS.js and switched
+ * via body[data-theme][data-mode-effective] attributes by the theme provider.
+ * Only layout/sizing/structure is kept here.
+ */
 :root {
-	--bg-primary: #1a1b2e;
-	--bg-secondary: #252640;
-	--bg-card: #2d2e4a;
-	--bg-input: #363755;
-	--text-primary: #e8e8f0;
-	--text-secondary: #a0a0b8;
-	--text-muted: #6e6e88;
-	--accent-primary: #6366f1;
-	--accent-primary-hover: #818cf8;
-	--accent-success: #22c55e;
-	--accent-warning: #f59e0b;
-	--accent-danger: #ef4444;
-	--accent-info: #3b82f6;
-	--border-color: #3a3b5a;
 	--sidebar-width: 220px;
+}
+
+/* Safety fallback — used only before the theme provider initialises (the
+ * provider overwrites these immediately via higher-specificity selectors). */
+body {
+	--bg-primary: #ece9d8;
+	--bg-secondary: #d8d3b8;
+	--bg-card: #fffbf0;
+	--bg-input: #ffffff;
+	--text-primary: #1a1a1a;
+	--text-secondary: #4a4a4a;
+	--text-muted: #7a7a7a;
+	--text-on-accent: #ffffff;
+	--accent-primary: #000080;
+	--accent-primary-hover: #0000cc;
+	--accent-success: #008000;
+	--accent-warning: #808000;
+	--accent-danger: #800000;
+	--accent-info: #000080;
+	--border-color: #808080;
 }
 
 * {
@@ -93,7 +104,7 @@ body {
 
 .nav-item.active {
 	background: var(--accent-primary);
-	color: white;
+	color: var(--text-on-accent);
 }
 
 .nav-icon {
@@ -245,7 +256,7 @@ h2 {
 	cursor: not-allowed;
 }
 
-.btn-primary { background: var(--accent-primary); color: white; }
+.btn-primary { background: var(--accent-primary); color: var(--text-on-accent); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
 .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); }
 .btn-secondary:hover:not(:disabled) { background: var(--bg-input); }
