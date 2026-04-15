@@ -623,6 +623,10 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 			case 'MySQL':
 			{
 				let tmpPool = pProvider.pool || pProvider;
+				if (!tmpPool || typeof tmpPool.query !== 'function')
+				{
+					return fCallback(new Error('MySQL provider not connected.'));
+				}
 				tmpPool.query(pSQL,
 					(pError, pResults) =>
 					{
@@ -634,12 +638,22 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 			case 'PostgreSQL':
 			{
 				let tmpPool = pProvider.pool || pProvider;
-				tmpPool.query(pSQL,
-					(pError, pResult) =>
+				if (!tmpPool || typeof tmpPool.query !== 'function')
+				{
+					return fCallback(new Error('PostgreSQL provider not connected.'));
+				}
+				let tmpResult = tmpPool.query(pSQL,
+					(pError, pData) =>
 					{
 						if (pError) return fCallback(pError);
-						return fCallback(null, pResult.rows || pResult);
+						return fCallback(null, (pData && pData.rows) || pData || []);
 					});
+				// node-postgres' Pool.query may return a Promise on newer
+				// versions when no callback is supplied — defensive support.
+				if (tmpResult && typeof tmpResult.then === 'function' && typeof tmpResult.catch === 'function')
+				{
+					this._adoptPromise(tmpResult, (pData) => (pData && pData.rows) || pData || [], fCallback);
+				}
 				break;
 			}
 			case 'SQLite':
@@ -647,6 +661,10 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 				try
 				{
 					let tmpDB = pProvider.db || pProvider;
+					if (!tmpDB || typeof tmpDB.prepare !== 'function')
+					{
+						return fCallback(new Error('SQLite provider not connected.'));
+					}
 					let tmpStmt = tmpDB.prepare(pSQL);
 					let tmpRows = tmpStmt.all();
 					return fCallback(null, tmpRows);
@@ -657,9 +675,65 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 				}
 				break;
 			}
+			case 'MSSQL':
+			{
+				try
+				{
+					// node-mssql exposes a ConnectionPool with .request() that
+					// returns a Request whose .query(sql) returns a Promise
+					// resolving to { recordset, recordsets, rowsAffected, ... }.
+					// Older versions also supported a callback variant — match
+					// the SchemaIntrospector's existing dual-style for safety.
+					let tmpPool = pProvider.pool || pProvider;
+					if (!tmpPool || typeof tmpPool.request !== 'function')
+					{
+						return fCallback(new Error('MSSQL provider not connected.'));
+					}
+					let tmpRequest = tmpPool.request();
+					let tmpResult = tmpRequest.query(pSQL);
+					if (tmpResult && typeof tmpResult.then === 'function')
+					{
+						this._adoptPromise(tmpResult, (pData) => (pData && pData.recordset) || [], fCallback);
+					}
+					else
+					{
+						return fCallback(null, (tmpResult && tmpResult.recordset) || []);
+					}
+				}
+				catch (pError)
+				{
+					return fCallback(pError);
+				}
+				break;
+			}
+			case 'MongoDB':
+				return fCallback(new Error('MongoDB does not support raw SQL — use the MongoDB collection API directly.'));
+			case 'Solr':
+				return fCallback(new Error('Solr does not support raw SQL — use the Solr query string syntax via /select.'));
+			case 'RocksDB':
+				return fCallback(new Error('RocksDB is a key-value store and does not support raw SQL.'));
 			default:
 				return fCallback(new Error(`Query execution not supported for type: ${pType}`));
 		}
+	}
+
+	/**
+	 * Adapt a Promise-returning query into the (err, rows) callback shape
+	 * used throughout this service. Idempotent — guards against double-fire
+	 * when a driver also accepts a callback alongside the Promise.
+	 */
+	_adoptPromise(pPromise, fExtractRows, fCallback)
+	{
+		let tmpDelivered = false;
+		let tmpDeliver = (pError, pRows) =>
+		{
+			if (tmpDelivered) return;
+			tmpDelivered = true;
+			return fCallback(pError, pRows);
+		};
+		pPromise.then(
+			(pData) => tmpDeliver(null, fExtractRows(pData)),
+			(pError) => tmpDeliver(pError));
 	}
 
 	// ================================================================

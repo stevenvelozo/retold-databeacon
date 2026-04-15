@@ -604,5 +604,220 @@ suite
 					});
 			}
 		);
+
+		// ----------------------------------------------------------------
+		// _runQuery driver dispatch (unit-style — no live external DBs)
+		//
+		// These tests prove the query-execution dispatcher reaches every
+		// supported driver by feeding it a minimal mock provider with the
+		// shape of each driver's pool. They guard against regressions in
+		// the symptom the user reported: "MSSQL isn't supported."
+		// ----------------------------------------------------------------
+		suite
+		(
+			'_runQuery driver dispatch',
+			function ()
+			{
+				let _Introspector = null;
+
+				suiteSetup
+				(
+					function ()
+					{
+						_Introspector = _Fable.DataBeaconSchemaIntrospector;
+						libAssert.ok(_Introspector, 'SchemaIntrospector service should be available');
+						libAssert.strictEqual(typeof _Introspector._runQuery, 'function', '_runQuery should exist');
+					}
+				);
+
+				test
+				(
+					'MySQL: dispatches to pool.query callback',
+					function (fDone)
+					{
+						let tmpRows = [ { id: 1 }, { id: 2 } ];
+						let tmpProvider =
+						{
+							pool:
+							{
+								query: function (pSQL, fCb) { return fCb(null, tmpRows); }
+							}
+						};
+						_Introspector._runQuery('MySQL', tmpProvider, 'SELECT 1', function (pError, pResult)
+						{
+							libAssert.ifError(pError);
+							libAssert.deepStrictEqual(pResult, tmpRows);
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'PostgreSQL: extracts .rows from result',
+					function (fDone)
+					{
+						let tmpResult = { rows: [ { x: 'a' } ], rowCount: 1 };
+						let tmpProvider =
+						{
+							pool:
+							{
+								query: function (pSQL, fCb) { return fCb(null, tmpResult); }
+							}
+						};
+						_Introspector._runQuery('PostgreSQL', tmpProvider, 'SELECT 1', function (pError, pResult)
+						{
+							libAssert.ifError(pError);
+							libAssert.deepStrictEqual(pResult, tmpResult.rows);
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'SQLite: uses prepare().all()',
+					function (fDone)
+					{
+						let tmpRows = [ { hello: 'world' } ];
+						let tmpProvider =
+						{
+							db:
+							{
+								prepare: function (pSQL)
+								{
+									return { all: function () { return tmpRows; } };
+								}
+							}
+						};
+						_Introspector._runQuery('SQLite', tmpProvider, 'SELECT 1', function (pError, pResult)
+						{
+							libAssert.ifError(pError);
+							libAssert.deepStrictEqual(pResult, tmpRows);
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'MSSQL: extracts .recordset from request().query() promise — REGRESSION GUARD',
+					function (fDone)
+					{
+						let tmpRecordset = [ { TABLE_NAME: 'User' } ];
+						let tmpProvider =
+						{
+							pool:
+							{
+								request: function ()
+								{
+									return {
+										query: function (pSQL)
+										{
+											return Promise.resolve({ recordset: tmpRecordset, rowsAffected: [1] });
+										}
+									};
+								}
+							}
+						};
+						_Introspector._runQuery('MSSQL', tmpProvider, 'SELECT 1', function (pError, pResult)
+						{
+							libAssert.ifError(pError);
+							libAssert.deepStrictEqual(pResult, tmpRecordset);
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'MSSQL: surfaces a query error from the rejected promise',
+					function (fDone)
+					{
+						let tmpProvider =
+						{
+							pool:
+							{
+								request: function ()
+								{
+									return {
+										query: function (pSQL)
+										{
+											return Promise.reject(new Error('Invalid object name dbo.Missing'));
+										}
+									};
+								}
+							}
+						};
+						_Introspector._runQuery('MSSQL', tmpProvider, 'SELECT 1 FROM dbo.Missing', function (pError, pResult)
+						{
+							libAssert.ok(pError, 'Should produce an error');
+							libAssert.ok(/Missing/.test(pError.message), 'Error message should be passed through');
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'MSSQL: returns clear error when provider not connected',
+					function (fDone)
+					{
+						_Introspector._runQuery('MSSQL', {}, 'SELECT 1', function (pError)
+						{
+							libAssert.ok(pError, 'Should produce an error');
+							libAssert.ok(/not connected/i.test(pError.message), 'Error should mention not-connected');
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'MongoDB / Solr / RocksDB: explicit not-SQL errors per driver',
+					function (fDone)
+				{
+					let tmpResults = [];
+					let tmpExpectations =
+					[
+						{ Type: 'MongoDB', Pattern: /MongoDB/ },
+						{ Type: 'Solr', Pattern: /Solr/ },
+						{ Type: 'RocksDB', Pattern: /RocksDB/ }
+					];
+					let tmpRemaining = tmpExpectations.length;
+					tmpExpectations.forEach(function (pExpect)
+					{
+						_Introspector._runQuery(pExpect.Type, {}, 'SELECT 1', function (pError)
+						{
+							libAssert.ok(pError, `${pExpect.Type} should error`);
+							libAssert.ok(pExpect.Pattern.test(pError.message),
+								`${pExpect.Type} error should mention the driver name; got: ${pError.message}`);
+							tmpResults.push(pExpect.Type);
+							tmpRemaining--;
+							if (tmpRemaining === 0)
+							{
+								libAssert.strictEqual(tmpResults.length, tmpExpectations.length);
+								return fDone();
+							}
+						});
+					});
+				}
+				);
+
+				test
+				(
+					'Unknown driver: bare not-supported error',
+					function (fDone)
+					{
+						_Introspector._runQuery('Cassandra', {}, 'SELECT 1', function (pError)
+						{
+							libAssert.ok(pError, 'Should error for unknown driver');
+							libAssert.ok(/Cassandra/.test(pError.message), 'Error should include the type name');
+							return fDone();
+						});
+					}
+				);
+			}
+		);
 	}
 );
