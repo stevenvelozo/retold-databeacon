@@ -9581,8 +9581,9 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 <div id="DataBeacon-QueryPanel-Root" class="section">
 	<h2>Query Panel</h2>
 	<div class="form-group">
-		<label>SQL (SELECT only)</label>
+		<label>{~D:AppData.QueryPanel.EditorLabel:SQL (SELECT only)~}</label>
 		<div id="DataBeacon-QueryPanel-Editor"></div>
+		<div class="help-text" id="DataBeacon-QueryPanel-EditorHint">{~D:AppData.QueryPanel.EditorHint~}</div>
 	</div>
 	<div class="button-row">
 		<button class="btn btn-primary" data-databeacon-action="execute">
@@ -9652,6 +9653,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         constructor(pFable, pOptions, pServiceHash) {
           super(pFable, pOptions, pServiceHash);
         }
+        onBeforeRender(pRenderable) {
+          // Refresh the editor label/hint/language metadata based on the
+          // current connection type so the declarative template bindings
+          // (`AppData.QueryPanel.EditorLabel` etc.) have the latest values
+          // before the root renders.
+          this._applyDriverProfile();
+          return super.onBeforeRender(pRenderable);
+        }
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-QueryPanel-Root');
@@ -9673,6 +9682,16 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         _mountEditor() {
           let tmpEditor = this.pict.views.SQLEditor;
           if (!tmpEditor) return;
+          // Align CodeJar's language BEFORE (re)creating its instance so the
+          // appropriate highlighter is compiled at init time.
+          let tmpLanguage = this._resolveEditorLanguage();
+          if (tmpEditor._language !== tmpLanguage && typeof tmpEditor.setLanguage === 'function') {
+            try {
+              tmpEditor.setLanguage(tmpLanguage);
+            } catch (pError) {
+              tmpEditor._language = tmpLanguage;
+            }
+          }
           if (tmpEditor.codeJar) tmpEditor.destroy();
           tmpEditor.initialRenderComplete = false;
           tmpEditor.render();
@@ -9839,7 +9858,9 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           let tmpSQL = this._readSQL().trim();
           let tmpCID = this.pict.AppData.SelectedConnectionID;
           if (!tmpSQL) {
-            if (tmpModal) tmpModal.toast('Please enter a SQL query.', {
+            let tmpProfile = this._currentDriverProfile();
+            let tmpMessage = tmpProfile.IsSQL ? 'Please enter a SQL query.' : `Please enter a ${tmpProfile.Label} query.`;
+            if (tmpModal) tmpModal.toast(tmpMessage, {
               type: 'warning'
             });
             return;
@@ -9881,6 +9902,75 @@ body[data-theme="sgi"][data-mode-effective="dark"]
               if (tmpGUID) tmpSavedProvider.noteRun(tmpGUID, tmpRows.length);
             }
           });
+        }
+
+        // ================================================================
+        // Driver-aware editor profile (SQL vs Mongo/Solr/RocksDB JSON)
+        // ================================================================
+
+        _currentDriverProfile() {
+          let tmpConn = this._currentConnection();
+          let tmpType = tmpConn ? tmpConn.Type : null;
+          switch (tmpType) {
+            case 'MongoDB':
+              return {
+                Type: 'MongoDB',
+                IsSQL: false,
+                Language: 'json',
+                Label: 'MongoDB (JSON descriptor)',
+                Hint: 'Example: {"op":"find","collection":"users","filter":{"active":true},"limit":50} · also supports "aggregate" and "runCommand"'
+              };
+            case 'Solr':
+              return {
+                Type: 'Solr',
+                IsSQL: false,
+                Language: 'json',
+                Label: 'Solr (JSON descriptor or query string)',
+                Hint: 'JSON: {"q":"title:foo","rows":50} · or raw: q=title:foo&rows=50'
+              };
+            case 'RocksDB':
+              return {
+                Type: 'RocksDB',
+                IsSQL: false,
+                Language: 'json',
+                Label: 'RocksDB (JSON descriptor)',
+                Hint: 'Example: {"op":"scan","start":"user/","end":"user/~","limit":50} · also supports {"op":"get","key":"user/1"}'
+              };
+            case 'MySQL':
+            case 'PostgreSQL':
+            case 'MSSQL':
+            case 'SQLite':
+            default:
+              return {
+                Type: tmpType || 'SQL',
+                IsSQL: true,
+                Language: 'sql',
+                Label: 'SQL (SELECT only)',
+                Hint: 'SELECT ... — other statement types are rejected server-side.'
+              };
+          }
+        }
+        _resolveEditorLanguage() {
+          return this._currentDriverProfile().Language;
+        }
+        _applyDriverProfile() {
+          let tmpProfile = this._currentDriverProfile();
+          if (!this.pict.AppData.QueryPanel) this.pict.AppData.QueryPanel = {
+            SQL: ''
+          };
+          this.pict.AppData.QueryPanel.EditorLabel = tmpProfile.Label;
+          this.pict.AppData.QueryPanel.EditorHint = tmpProfile.Hint;
+          this.pict.AppData.QueryPanel.EditorLanguage = tmpProfile.Language;
+          this.pict.AppData.QueryPanel.DriverType = tmpProfile.Type;
+        }
+        _currentConnection() {
+          let tmpID = this.pict.AppData.SelectedConnectionID;
+          if (tmpID === null || tmpID === undefined) return null;
+          let tmpConns = this.pict.AppData.Connections || [];
+          for (let i = 0; i < tmpConns.length; i++) {
+            if (tmpConns[i].IDBeaconConnection === tmpID) return tmpConns[i];
+          }
+          return null;
         }
       }
       module.exports = PictViewDataBeaconQueryPanel;

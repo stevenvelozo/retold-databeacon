@@ -15,6 +15,11 @@ const defaultSchemaIntrospectorOptions = (
 		RoutePrefix: '/beacon'
 	});
 
+// Connection types whose query panel input is free-form SQL. Everything
+// else is expected to be a JSON descriptor (or driver-specific string)
+// and bypasses the SELECT-only gate.
+const _SQLTypes = { MySQL: true, PostgreSQL: true, MSSQL: true, SQLite: true };
+
 class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 {
 	constructor(pFable, pOptions, pServiceHash)
@@ -586,13 +591,8 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 			return fCallback(new Error('Connection is not live.'));
 		}
 
-		// Safety: only allow SELECT statements
-		let tmpTrimmed = (pSQL || '').trim().toUpperCase();
-		if (!tmpTrimmed.startsWith('SELECT'))
-		{
-			return fCallback(new Error('Only SELECT queries are allowed.'));
-		}
-
+		// Resolve the connection record before we can decide whether the
+		// SELECT-only gate applies — it only applies to SQL driver types.
 		let tmpReadQuery = this.fable.DAL.BeaconConnection.query.clone()
 			.addFilter('IDBeaconConnection', pIDBeaconConnection);
 
@@ -605,6 +605,19 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 				}
 
 				let tmpType = pConnectionRecord.Type;
+
+				// Safety: only allow SELECT statements for SQL drivers.
+				// Non-SQL drivers (MongoDB / Solr / RocksDB) receive a JSON
+				// descriptor whose shape is validated downstream.
+				if (_SQLTypes[tmpType])
+				{
+					let tmpTrimmed = (pSQL || '').trim().toUpperCase();
+					if (!tmpTrimmed.startsWith('SELECT'))
+					{
+						return fCallback(new Error('Only SELECT queries are allowed.'));
+					}
+				}
+
 				let tmpProvider = tmpConnectionBridge.getConnectionInstance(pIDBeaconConnection);
 
 				if (!tmpProvider)
@@ -707,14 +720,282 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 				break;
 			}
 			case 'MongoDB':
-				return fCallback(new Error('MongoDB does not support raw SQL — use the MongoDB collection API directly.'));
+				return this._runMongoQuery(pProvider, pSQL, fCallback);
 			case 'Solr':
-				return fCallback(new Error('Solr does not support raw SQL — use the Solr query string syntax via /select.'));
+				return this._runSolrQuery(pProvider, pSQL, fCallback);
 			case 'RocksDB':
-				return fCallback(new Error('RocksDB is a key-value store and does not support raw SQL.'));
+				return this._runRocksDBQuery(pProvider, pSQL, fCallback);
 			default:
 				return fCallback(new Error(`Query execution not supported for type: ${pType}`));
 		}
+	}
+
+	/**
+	 * Parse a JSON descriptor with a reject-clearly-on-error contract.
+	 * @returns {[Object, null] | [null, Error]}
+	 */
+	_parseJSONDescriptor(pInput, pDriverName)
+	{
+		if (pInput && typeof pInput === 'object') return [pInput, null];
+		let tmpTrimmed = (pInput || '').toString().trim();
+		if (tmpTrimmed.length === 0) return [null, new Error(`Empty ${pDriverName} query — expected a JSON descriptor.`)];
+		try
+		{
+			let tmpParsed = JSON.parse(tmpTrimmed);
+			if (!tmpParsed || typeof tmpParsed !== 'object' || Array.isArray(tmpParsed))
+			{
+				return [null, new Error(`${pDriverName} query must be a JSON object.`)];
+			}
+			return [tmpParsed, null];
+		}
+		catch (pError)
+		{
+			return [null, new Error(`${pDriverName} query is not valid JSON: ${pError.message}`)];
+		}
+	}
+
+	/**
+	 * MongoDB dispatcher — supports three op shapes:
+	 *
+	 *   { "op": "find",       "collection": "users", "filter": {...}, "projection": {...}, "sort": {...}, "skip": 0, "limit": 50 }
+	 *   { "op": "aggregate",  "collection": "users", "pipeline": [...], "options": {...} }
+	 *   { "op": "runCommand", "command": { "distinct": "users", "key": "country" } }
+	 *
+	 * find + aggregate return `cursor.toArray()`. runCommand returns the
+	 * command's `.cursor.firstBatch` when present, otherwise a single-row
+	 * wrapper so the results table + exporters still see Array<Object>.
+	 */
+	_runMongoQuery(pProvider, pInput, fCallback)
+	{
+		let tmpPool = pProvider.pool || pProvider;
+		if (!tmpPool || typeof tmpPool.collection !== 'function' || typeof tmpPool.command !== 'function')
+		{
+			return fCallback(new Error('MongoDB provider not connected.'));
+		}
+		let tmpParsed = this._parseJSONDescriptor(pInput, 'MongoDB');
+		if (tmpParsed[1]) return fCallback(tmpParsed[1]);
+		let tmpDescriptor = tmpParsed[0];
+		let tmpOp = tmpDescriptor.op || tmpDescriptor.Op;
+
+		try
+		{
+			if (tmpOp === 'find')
+			{
+				let tmpCollection = tmpDescriptor.collection || tmpDescriptor.Collection;
+				if (!tmpCollection) return fCallback(new Error('MongoDB find: "collection" is required.'));
+				let tmpCursor = tmpPool.collection(tmpCollection).find(
+					tmpDescriptor.filter || tmpDescriptor.Filter || {},
+					tmpDescriptor.projection ? { projection: tmpDescriptor.projection } : undefined
+				);
+				if (tmpDescriptor.sort) tmpCursor = tmpCursor.sort(tmpDescriptor.sort);
+				if (typeof tmpDescriptor.skip === 'number') tmpCursor = tmpCursor.skip(tmpDescriptor.skip);
+				if (typeof tmpDescriptor.limit === 'number') tmpCursor = tmpCursor.limit(tmpDescriptor.limit);
+				return this._adoptPromise(tmpCursor.toArray(), (pRows) => pRows || [], fCallback);
+			}
+			if (tmpOp === 'aggregate')
+			{
+				let tmpCollection = tmpDescriptor.collection || tmpDescriptor.Collection;
+				if (!tmpCollection) return fCallback(new Error('MongoDB aggregate: "collection" is required.'));
+				let tmpPipeline = tmpDescriptor.pipeline || tmpDescriptor.Pipeline;
+				if (!Array.isArray(tmpPipeline)) return fCallback(new Error('MongoDB aggregate: "pipeline" must be an array.'));
+				let tmpCursor = tmpPool.collection(tmpCollection).aggregate(tmpPipeline, tmpDescriptor.options || undefined);
+				return this._adoptPromise(tmpCursor.toArray(), (pRows) => pRows || [], fCallback);
+			}
+			if (tmpOp === 'runCommand')
+			{
+				let tmpCommand = tmpDescriptor.command || tmpDescriptor.Command;
+				if (!tmpCommand || typeof tmpCommand !== 'object')
+				{
+					return fCallback(new Error('MongoDB runCommand: "command" must be a JSON object.'));
+				}
+				return this._adoptPromise(
+					tmpPool.command(tmpCommand),
+					(pResult) =>
+					{
+						if (!pResult) return [];
+						// Command-cursor responses (aggregate-style commands).
+						if (pResult.cursor && Array.isArray(pResult.cursor.firstBatch)) return pResult.cursor.firstBatch;
+						// distinct / map of { values: [...] }.
+						if (Array.isArray(pResult.values)) return pResult.values.map((v) => ({ Value: v }));
+						// Generic command — wrap so the results panel stays tabular.
+						return [pResult];
+					},
+					fCallback);
+			}
+			return fCallback(new Error(`MongoDB: unknown "op" [${tmpOp}] — expected "find", "aggregate", or "runCommand".`));
+		}
+		catch (pError)
+		{
+			return fCallback(pError);
+		}
+	}
+
+	/**
+	 * Solr dispatcher — accepts either a bare query string (treated as the
+	 * `q=` parameter) or a JSON object with `q`, `fq`, `rows`, `start`,
+	 * `sort`, `fl`. Returns `response.docs` from the Solr response.
+	 */
+	_runSolrQuery(pProvider, pInput, fCallback)
+	{
+		let tmpPool = pProvider.pool || pProvider;
+		if (!tmpPool || typeof tmpPool.search !== 'function')
+		{
+			return fCallback(new Error('Solr provider not connected.'));
+		}
+		let tmpTrimmed = (pInput || '').toString().trim();
+		if (tmpTrimmed.length === 0) return fCallback(new Error('Empty Solr query — expected a query string or JSON descriptor.'));
+
+		let tmpQueryString;
+		// Try JSON first; fall back to raw string.
+		if (tmpTrimmed.charAt(0) === '{')
+		{
+			let tmpParsed = this._parseJSONDescriptor(tmpTrimmed, 'Solr');
+			if (tmpParsed[1]) return fCallback(tmpParsed[1]);
+			tmpQueryString = this._solrDescriptorToQueryString(tmpParsed[0]);
+		}
+		else
+		{
+			// Raw — assume it's either "foo:bar ..." or a full query string.
+			tmpQueryString = (tmpTrimmed.indexOf('=') >= 0) ? tmpTrimmed : `q=${encodeURIComponent(tmpTrimmed)}`;
+		}
+
+		let tmpCb = (pError, pResponse) =>
+		{
+			if (pError) return fCallback(pError);
+			let tmpDocs = pResponse && pResponse.response && Array.isArray(pResponse.response.docs)
+				? pResponse.response.docs
+				: (Array.isArray(pResponse) ? pResponse : []);
+			return fCallback(null, tmpDocs);
+		};
+
+		try
+		{
+			// solr-client supports both callback (`search(q, cb)`) and Promise
+			// styles depending on version.
+			let tmpResult = tmpPool.search(tmpQueryString, tmpCb);
+			if (tmpResult && typeof tmpResult.then === 'function')
+			{
+				this._adoptPromise(
+					tmpResult,
+					(pResponse) => (pResponse && pResponse.response && Array.isArray(pResponse.response.docs))
+						? pResponse.response.docs
+						: (Array.isArray(pResponse) ? pResponse : []),
+					fCallback);
+			}
+		}
+		catch (pError)
+		{
+			return fCallback(pError);
+		}
+	}
+
+	_solrDescriptorToQueryString(pDescriptor)
+	{
+		let tmpParts = [];
+		let tmpQ = pDescriptor.q || pDescriptor.Q || '*:*';
+		tmpParts.push(`q=${encodeURIComponent(tmpQ)}`);
+		if (Array.isArray(pDescriptor.fq))
+		{
+			for (let i = 0; i < pDescriptor.fq.length; i++) tmpParts.push(`fq=${encodeURIComponent(pDescriptor.fq[i])}`);
+		}
+		if (typeof pDescriptor.rows === 'number') tmpParts.push(`rows=${pDescriptor.rows}`);
+		if (typeof pDescriptor.start === 'number') tmpParts.push(`start=${pDescriptor.start}`);
+		if (pDescriptor.sort) tmpParts.push(`sort=${encodeURIComponent(pDescriptor.sort)}`);
+		if (pDescriptor.fl) tmpParts.push(`fl=${encodeURIComponent(pDescriptor.fl)}`);
+		return tmpParts.join('&');
+	}
+
+	/**
+	 * RocksDB dispatcher — supports two op shapes:
+	 *
+	 *   { "op": "get",  "key": "user/123" }
+	 *   { "op": "scan", "start": "user/", "end": "user/~", "limit": 100 }
+	 *
+	 * RocksDB's Node bindings are LevelDOWN-compatible: `db.get(key, cb)`
+	 * and `db.iterator({gte, lte, limit})` with `.next(cb)`.
+	 */
+	_runRocksDBQuery(pProvider, pInput, fCallback)
+	{
+		let tmpDB = pProvider.db || pProvider;
+		if (!tmpDB || typeof tmpDB.get !== 'function' || typeof tmpDB.iterator !== 'function')
+		{
+			return fCallback(new Error('RocksDB provider not connected.'));
+		}
+		let tmpParsed = this._parseJSONDescriptor(pInput, 'RocksDB');
+		if (tmpParsed[1]) return fCallback(tmpParsed[1]);
+		let tmpDescriptor = tmpParsed[0];
+		let tmpOp = tmpDescriptor.op || tmpDescriptor.Op;
+
+		try
+		{
+			if (tmpOp === 'get')
+			{
+				let tmpKey = tmpDescriptor.key || tmpDescriptor.Key;
+				if (tmpKey === undefined || tmpKey === null) return fCallback(new Error('RocksDB get: "key" is required.'));
+				tmpDB.get(tmpKey, { asBuffer: false }, (pError, pValue) =>
+				{
+					if (pError && !/NotFound/i.test(pError.message || '')) return fCallback(pError);
+					if (pError) return fCallback(null, []); // key not found -> empty result
+					return fCallback(null, [{ Key: String(tmpKey), Value: this._coerceRocksValue(pValue) }]);
+				});
+				return;
+			}
+			if (tmpOp === 'scan')
+			{
+				let tmpLimit = (typeof tmpDescriptor.limit === 'number') ? tmpDescriptor.limit : 100;
+				let tmpOptions = { keyAsBuffer: false, valueAsBuffer: false };
+				if (tmpDescriptor.start !== undefined) tmpOptions.gte = tmpDescriptor.start;
+				if (tmpDescriptor.end !== undefined) tmpOptions.lte = tmpDescriptor.end;
+				if (typeof tmpDescriptor.limit === 'number') tmpOptions.limit = tmpLimit;
+				let tmpIterator = tmpDB.iterator(tmpOptions);
+				let tmpRows = [];
+				let fStep = () =>
+				{
+					tmpIterator.next((pError, pKey, pValue) =>
+					{
+						if (pError)
+						{
+							return tmpIterator.end(() => fCallback(pError));
+						}
+						if (pKey === undefined)
+						{
+							return tmpIterator.end((pEndError) => fCallback(pEndError || null, tmpRows));
+						}
+						tmpRows.push({ Key: String(pKey), Value: this._coerceRocksValue(pValue) });
+						if (tmpRows.length >= tmpLimit)
+						{
+							return tmpIterator.end((pEndError) => fCallback(pEndError || null, tmpRows));
+						}
+						return fStep();
+					});
+				};
+				fStep();
+				return;
+			}
+			return fCallback(new Error(`RocksDB: unknown "op" [${tmpOp}] — expected "get" or "scan".`));
+		}
+		catch (pError)
+		{
+			return fCallback(pError);
+		}
+	}
+
+	/**
+	 * RocksDB returns Buffers for values. Convert to a printable string;
+	 * if the bytes are valid UTF-8 we use that, else fall back to hex.
+	 */
+	_coerceRocksValue(pValue)
+	{
+		if (pValue === null || pValue === undefined) return null;
+		if (typeof pValue === 'string') return pValue;
+		if (typeof Buffer !== 'undefined' && Buffer.isBuffer(pValue))
+		{
+			let tmpUtf8 = pValue.toString('utf8');
+			// Heuristic: if round-tripping yields the same bytes, it's UTF-8.
+			if (Buffer.from(tmpUtf8, 'utf8').equals(pValue)) return tmpUtf8;
+			return pValue.toString('hex');
+		}
+		return String(pValue);
 	}
 
 	/**

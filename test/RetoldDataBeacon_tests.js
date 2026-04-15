@@ -774,34 +774,333 @@ suite
 
 				test
 				(
-					'MongoDB / Solr / RocksDB: explicit not-SQL errors per driver',
+					'MongoDB find: returns cursor.toArray() rows and applies limit',
 					function (fDone)
-				{
-					let tmpResults = [];
-					let tmpExpectations =
-					[
-						{ Type: 'MongoDB', Pattern: /MongoDB/ },
-						{ Type: 'Solr', Pattern: /Solr/ },
-						{ Type: 'RocksDB', Pattern: /RocksDB/ }
-					];
-					let tmpRemaining = tmpExpectations.length;
-					tmpExpectations.forEach(function (pExpect)
 					{
-						_Introspector._runQuery(pExpect.Type, {}, 'SELECT 1', function (pError)
+						let tmpDocs = [ { _id: 1, name: 'Ada' }, { _id: 2, name: 'Grace' } ];
+						let tmpSeen = null;
+						let tmpLimitSeen = null;
+						let tmpProvider =
 						{
-							libAssert.ok(pError, `${pExpect.Type} should error`);
-							libAssert.ok(pExpect.Pattern.test(pError.message),
-								`${pExpect.Type} error should mention the driver name; got: ${pError.message}`);
-							tmpResults.push(pExpect.Type);
-							tmpRemaining--;
-							if (tmpRemaining === 0)
+							pool:
 							{
-								libAssert.strictEqual(tmpResults.length, tmpExpectations.length);
-								return fDone();
+								collection: function (pName)
+								{
+									libAssert.strictEqual(pName, 'users');
+									return {
+										find: function (pFilter, pOptions)
+										{
+											tmpSeen = { pFilter, pOptions };
+											return {
+												sort: function () { return this; },
+												skip: function () { return this; },
+												limit: function (pLimit) { tmpLimitSeen = pLimit; return this; },
+												toArray: function () { return Promise.resolve(tmpDocs); }
+											};
+										}
+									};
+								},
+								command: function () { throw new Error('command should not be invoked for find'); }
 							}
+						};
+						_Introspector._runQuery('MongoDB', tmpProvider,
+							'{"op":"find","collection":"users","filter":{"active":true},"projection":{"name":1},"limit":50}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, tmpDocs);
+								libAssert.deepStrictEqual(tmpSeen.pFilter, { active: true });
+								libAssert.deepStrictEqual(tmpSeen.pOptions, { projection: { name: 1 } });
+								libAssert.strictEqual(tmpLimitSeen, 50);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'MongoDB aggregate: passes the pipeline through and returns rows',
+					function (fDone)
+					{
+						let tmpDocs = [ { _id: 'US', n: 4 }, { _id: 'UK', n: 2 } ];
+						let tmpPipelineSeen = null;
+						let tmpProvider =
+						{
+							pool:
+							{
+								collection: function (pName)
+								{
+									return {
+										aggregate: function (pPipeline)
+										{
+											tmpPipelineSeen = pPipeline;
+											return { toArray: function () { return Promise.resolve(tmpDocs); } };
+										}
+									};
+								},
+								command: function () {}
+							}
+						};
+						_Introspector._runQuery('MongoDB', tmpProvider,
+							'{"op":"aggregate","collection":"users","pipeline":[{"$match":{"active":true}},{"$group":{"_id":"$country","n":{"$sum":1}}}]}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, tmpDocs);
+								libAssert.ok(Array.isArray(tmpPipelineSeen) && tmpPipelineSeen.length === 2);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'MongoDB runCommand: extracts cursor.firstBatch when present',
+					function (fDone)
+					{
+						let tmpBatch = [ { _id: 'US' }, { _id: 'UK' } ];
+						let tmpProvider =
+						{
+							pool:
+							{
+								collection: function () { throw new Error('collection should not be invoked for runCommand'); },
+								command: function (pCmd)
+								{
+									libAssert.deepStrictEqual(pCmd, { distinct: 'users', key: 'country' });
+									return Promise.resolve({ cursor: { firstBatch: tmpBatch, id: 0 }, ok: 1 });
+								}
+							}
+						};
+						_Introspector._runQuery('MongoDB', tmpProvider,
+							'{"op":"runCommand","command":{"distinct":"users","key":"country"}}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, tmpBatch);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'MongoDB runCommand: wraps a plain command result as a single row',
+					function (fDone)
+					{
+						let tmpProvider =
+						{
+							pool:
+							{
+								collection: function () {},
+								command: function () { return Promise.resolve({ ok: 1, version: '7.0.0' }); }
+							}
+						};
+						_Introspector._runQuery('MongoDB', tmpProvider,
+							'{"op":"runCommand","command":{"buildInfo":1}}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.strictEqual(pResult.length, 1);
+								libAssert.strictEqual(pResult[0].ok, 1);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'MongoDB: rejects invalid JSON with a clear message',
+					function (fDone)
+					{
+						let tmpProvider = { pool: { collection: () => {}, command: () => {} } };
+						_Introspector._runQuery('MongoDB', tmpProvider, '{not json', function (pError)
+						{
+							libAssert.ok(pError);
+							libAssert.ok(/not valid JSON/.test(pError.message), 'Message should mention invalid JSON: ' + pError.message);
+							return fDone();
 						});
-					});
-				}
+					}
+				);
+
+				test
+				(
+					'MongoDB: rejects an unknown op',
+					function (fDone)
+					{
+						let tmpProvider = { pool: { collection: () => {}, command: () => {} } };
+						_Introspector._runQuery('MongoDB', tmpProvider, '{"op":"delete","collection":"users"}', function (pError)
+						{
+							libAssert.ok(pError);
+							libAssert.ok(/unknown.*op/i.test(pError.message), 'Message should mention unknown op: ' + pError.message);
+							return fDone();
+						});
+					}
+				);
+
+				test
+				(
+					'Solr JSON descriptor: assembles q/rows/fq and returns response.docs',
+					function (fDone)
+					{
+						let tmpDocs = [ { id: 1 }, { id: 2 } ];
+						let tmpProvider =
+						{
+							pool:
+							{
+								search: function (pQueryString, fCb)
+								{
+									libAssert.ok(pQueryString.indexOf('q=title%3Afoo') >= 0, 'should URL-encode q');
+									libAssert.ok(pQueryString.indexOf('rows=25') >= 0, 'should include rows');
+									libAssert.ok(pQueryString.indexOf('fq=active') >= 0, 'should include fq');
+									return fCb(null, { response: { docs: tmpDocs, numFound: 2 } });
+								}
+							}
+						};
+						_Introspector._runQuery('Solr', tmpProvider,
+							'{"q":"title:foo","rows":25,"fq":["active:true"]}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, tmpDocs);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'Solr raw query string: passed through unchanged',
+					function (fDone)
+					{
+						let tmpProvider =
+						{
+							pool:
+							{
+								search: function (pQueryString, fCb)
+								{
+									libAssert.strictEqual(pQueryString, 'q=title:foo&rows=10');
+									return fCb(null, { response: { docs: [], numFound: 0 } });
+								}
+							}
+						};
+						_Introspector._runQuery('Solr', tmpProvider, 'q=title:foo&rows=10',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, []);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'RocksDB get: returns a single {Key, Value} row',
+					function (fDone)
+					{
+						let tmpProvider =
+						{
+							db:
+							{
+								get: function (pKey, pOptions, fCb) { return fCb(null, '{"name":"Ada"}'); },
+								iterator: function () {}
+							}
+						};
+						_Introspector._runQuery('RocksDB', tmpProvider, '{"op":"get","key":"user/123"}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, [ { Key: 'user/123', Value: '{"name":"Ada"}' } ]);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'RocksDB get: NotFound becomes an empty result (not an error)',
+					function (fDone)
+					{
+						let tmpProvider =
+						{
+							db:
+							{
+								get: function (pKey, pOptions, fCb) { return fCb(new Error('NotFound: missing')); },
+								iterator: function () {}
+							}
+						};
+						_Introspector._runQuery('RocksDB', tmpProvider, '{"op":"get","key":"user/missing"}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.deepStrictEqual(pResult, []);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'RocksDB scan: honours limit and returns Key/Value rows',
+					function (fDone)
+					{
+						let tmpPairs = [ [ 'user/1', 'Ada' ], [ 'user/2', 'Grace' ], [ 'user/3', 'Katherine' ] ];
+						let tmpIndex = 0;
+						let tmpOptionsSeen = null;
+						let tmpProvider =
+						{
+							db:
+							{
+								get: function () {},
+								iterator: function (pOptions)
+								{
+									tmpOptionsSeen = pOptions;
+									return {
+										next: function (fCb)
+										{
+											if (tmpIndex >= tmpPairs.length) return fCb(null, undefined, undefined);
+											let tmpPair = tmpPairs[tmpIndex++];
+											return fCb(null, tmpPair[0], tmpPair[1]);
+										},
+										end: function (fCb) { return fCb(null); }
+									};
+								}
+							}
+						};
+						_Introspector._runQuery('RocksDB', tmpProvider,
+							'{"op":"scan","start":"user/","end":"user/~","limit":2}',
+							function (pError, pResult)
+							{
+								libAssert.ifError(pError);
+								libAssert.strictEqual(pResult.length, 2);
+								libAssert.strictEqual(pResult[0].Key, 'user/1');
+								libAssert.strictEqual(pResult[1].Key, 'user/2');
+								libAssert.strictEqual(tmpOptionsSeen.gte, 'user/');
+								libAssert.strictEqual(tmpOptionsSeen.lte, 'user/~');
+								libAssert.strictEqual(tmpOptionsSeen.limit, 2);
+								return fDone();
+							});
+					}
+				);
+
+				test
+				(
+					'Non-SQL drivers: clear error when the provider is not connected',
+					function (fDone)
+					{
+						let tmpCases = [ 'MongoDB', 'Solr', 'RocksDB' ];
+						let tmpRemaining = tmpCases.length;
+						tmpCases.forEach(function (pType)
+						{
+							_Introspector._runQuery(pType, {}, '{}', function (pError)
+							{
+								libAssert.ok(pError, `${pType} should error when not connected`);
+								libAssert.ok(/not connected/i.test(pError.message),
+									`${pType} should say "not connected"; got: ${pError.message}`);
+								if (--tmpRemaining === 0) return fDone();
+							});
+						});
+					}
 				);
 
 				test
