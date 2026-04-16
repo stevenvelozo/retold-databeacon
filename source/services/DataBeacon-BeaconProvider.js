@@ -12,6 +12,7 @@
  * @author Steven Velozo <steven@velozo.com>
  */
 const libFableServiceProviderBase = require('fable-serviceproviderbase');
+const { registerMeadowProxyCapability } = require('./DataBeacon-MeadowProxyProvider.js');
 
 let libBeaconService = null;
 try
@@ -103,7 +104,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 						{
 							if (!tmpFable.DAL || !tmpFable.DAL.BeaconConnection)
 							{
-								return fHandlerCallback(null, { Connections: [] });
+								return fHandlerCallback(null, { Outputs: { Connections: [] }, Log: [] });
 							}
 
 							let tmpQuery = tmpFable.DAL.BeaconConnection.query.clone()
@@ -121,7 +122,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 									{
 										pRecords[i].Config = '{}';
 									}
-									return fHandlerCallback(null, { Connections: pRecords });
+									return fHandlerCallback(null, { Outputs: { Connections: pRecords }, Log: [] });
 								});
 						}
 					},
@@ -158,7 +159,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 										EndpointsEnabled: !!pR.EndpointsEnabled,
 										RowCountEstimate: pR.RowCountEstimate
 									}));
-									return fHandlerCallback(null, { Tables: tmpTables });
+									return fHandlerCallback(null, { Outputs: { Tables: tmpTables }, Log: [] });
 								});
 						}
 					},
@@ -202,7 +203,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 									{
 										return fHandlerCallback(pError);
 									}
-									return fHandlerCallback(null, { Records: pRecords, Count: pRecords.length });
+									return fHandlerCallback(null, { Outputs: { Records: pRecords, Count: pRecords.length }, Log: [] });
 								});
 						}
 					},
@@ -227,7 +228,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 									{
 										return fHandlerCallback(pError);
 									}
-									return fHandlerCallback(null, { Rows: pResults, RowCount: Array.isArray(pResults) ? pResults.length : 0 });
+									return fHandlerCallback(null, { Outputs: { Rows: pResults, RowCount: Array.isArray(pResults) ? pResults.length : 0 }, Log: [] });
 								});
 						}
 					}
@@ -265,8 +266,12 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 									}
 									return fHandlerCallback(null,
 									{
-										TableCount: pResults.length,
-										Tables: pResults.map((pR) => ({ TableName: pR.TableName, ColumnCount: pR.Columns.length }))
+										Outputs:
+										{
+											TableCount: pResults.length,
+											Tables: pResults.map((pR) => ({ TableName: pR.TableName, ColumnCount: pR.Columns.length }))
+										},
+										Log: []
 									});
 								});
 						}
@@ -303,6 +308,15 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 					}
 				}
 			});
+
+		// ---------------------------------------------------------
+		// Capability: MeadowProxy
+		// Relay HTTP requests to the databeacon's localhost REST API
+		// so a client-mode databeacon can drive the entire meadow
+		// surface transparently through the ultravisor mesh.
+		// ---------------------------------------------------------
+		registerMeadowProxyCapability(this._BeaconService, tmpFable,
+			(pBeaconConfig && pBeaconConfig.MeadowProxy) || {});
 
 		// Enable the beacon
 		this._BeaconService.enable(

@@ -725,9 +725,41 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 				return this._runSolrQuery(pProvider, pSQL, fCallback);
 			case 'RocksDB':
 				return this._runRocksDBQuery(pProvider, pSQL, fCallback);
+			case 'RetoldDataBeacon':
+				return this._runRetoldDataBeaconQuery(pProvider, pSQL, fCallback);
 			default:
 				return fCallback(new Error(`Query execution not supported for type: ${pType}`));
 		}
+	}
+
+	/**
+	 * Raw SQL via a RetoldDataBeacon connection: dispatches
+	 * `DataBeaconAccess:QueryTable` through ultravisor to the remote beacon,
+	 * which in turn runs the SQL against its connected database.
+	 *
+	 * @param {object} pProvider - The MeadowConnectionRetoldDataBeacon instance
+	 * @param {string} pSQL - SQL statement (typically SELECT-only; writes are
+	 *                        gated on the remote side by its own safety rules)
+	 * @param {function} fCallback - function(pError, pRows)
+	 */
+	_runRetoldDataBeaconQuery(pProvider, pSQL, fCallback)
+	{
+		if (!pProvider || typeof pProvider._dispatchAction !== 'function')
+		{
+			return fCallback(new Error('RetoldDataBeacon provider is not available or not connected.'));
+		}
+		// The remote beacon's BeaconConnection ID for the customer DB is stored
+		// on the provider as IDBeaconConnection (or defaults to 1 via
+		// _defaultConnectionID()).
+		let tmpRemoteID = pProvider._defaultConnectionID();
+		pProvider._dispatchAction('DataBeaconAccess', 'QueryTable',
+			{ IDBeaconConnection: tmpRemoteID, SQL: pSQL },
+			(pError, pResult) =>
+			{
+				if (pError) { return fCallback(pError); }
+				let tmpRows = (pResult && pResult.Rows) || [];
+				return fCallback(null, tmpRows);
+			});
 	}
 
 	/**

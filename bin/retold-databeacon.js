@@ -28,6 +28,7 @@ let _CLILogPath = null;
 let _CLIPort = null;
 let _CLIDBPath = null;
 let _CLICommand = 'serve';
+let _CLIMode = 'server';  // 'server' (default, agent-on-customer) | 'client' (engineer laptop)
 
 // Parse arguments
 let tmpArgs = process.argv.slice(2);
@@ -89,6 +90,40 @@ for (let i = 0; i < tmpArgs.length; i++)
 		printHelp();
 		process.exit(0);
 	}
+	else if (tmpArg === '--client')
+	{
+		_CLIMode = 'client';
+	}
+	else if (tmpArg === '--mode')
+	{
+		if (tmpArgs[i + 1])
+		{
+			let tmpModeValue = tmpArgs[i + 1].toLowerCase();
+			if (tmpModeValue === 'client' || tmpModeValue === 'server')
+			{
+				_CLIMode = tmpModeValue;
+			}
+			else
+			{
+				console.error(`Retold DataBeacon: unknown --mode [${tmpArgs[i + 1]}] (expected: server | client)`);
+				process.exit(1);
+			}
+			i++;
+		}
+	}
+	else if (tmpArg.startsWith('--mode='))
+	{
+		let tmpModeValue = tmpArg.substring('--mode='.length).toLowerCase();
+		if (tmpModeValue === 'client' || tmpModeValue === 'server')
+		{
+			_CLIMode = tmpModeValue;
+		}
+		else
+		{
+			console.error(`Retold DataBeacon: unknown --mode [${tmpModeValue}] (expected: server | client)`);
+			process.exit(1);
+		}
+	}
 	else if (!tmpArg.startsWith('-'))
 	{
 		if (tmpPositionalIndex === 0)
@@ -116,11 +151,24 @@ Options:
   --port, -p <port>    Override the API server port (default: 8389)
   --db, -d <path>      Path to SQLite database file (default: ./data/databeacon.sqlite)
   --log, -l [path]     Write log output to a file
+  --mode <server|client> Invocation mode (default: server)
+  --client             Shorthand for --mode client
   --help, -h           Show this help
+
+Modes:
+  server               Default. Local data introspection + optional Ultravisor
+                       beacon registration (runs on customer infrastructure).
+  client               Engineer-laptop mode. Uses a user-scoped default DB
+                       path (~/.retold/databeacon-client.sqlite) so client
+                       state doesn't collide with project-local files. The
+                       web UI still opens on the same port; connect to a
+                       remote customer by adding a BeaconConnection row
+                       with Type = RetoldDataBeacon.
 
 Examples:
   retold-databeacon                              Start server on default port
   retold-databeacon serve --port 9000            Start server on port 9000
+  retold-databeacon --client                     Engineer-mode (remote SQL client)
   retold-databeacon init                         Create database tables
   retold-databeacon serve --db /mnt/data/db.sqlite  Use external volume for DB
 `);
@@ -130,9 +178,24 @@ Examples:
 // Configuration
 // ================================================================
 
+// Default SQLite path depends on mode:
+//   server  — ./data/databeacon.sqlite (project-local, matches Docker volume layouts)
+//   client  — ~/.retold/databeacon-client.sqlite (user-scoped; engineer's mesh
+//             connections shouldn't collide with any project-local sqlite file)
+let _DefaultDBPath;
+if (_CLIMode === 'client')
+{
+	let tmpHome = process.env.HOME || process.env.USERPROFILE || process.cwd();
+	_DefaultDBPath = libPath.join(tmpHome, '.retold', 'databeacon-client.sqlite');
+}
+else
+{
+	_DefaultDBPath = libPath.join(process.cwd(), 'data', 'databeacon.sqlite');
+}
+
 let _Settings = (
 	{
-		Product: 'RetoldDataBeacon',
+		Product: (_CLIMode === 'client') ? 'RetoldDataBeacon-Client' : 'RetoldDataBeacon',
 		ProductVersion: '0.0.1',
 		APIServerPort: _CLIPort || parseInt(process.env.PORT, 10) || 8389,
 		LogStreams:
@@ -144,7 +207,7 @@ let _Settings = (
 
 		SQLite:
 			{
-				SQLiteFilePath: _CLIDBPath || libPath.join(process.cwd(), 'data', 'databeacon.sqlite')
+				SQLiteFilePath: _CLIDBPath || _DefaultDBPath
 			}
 	});
 
@@ -253,10 +316,16 @@ function commandServe()
 				_Fable.log.error(`Initialization error: ${pInitError}`);
 				process.exit(1);
 			}
-			_Fable.log.info(`Retold DataBeacon running on port ${_Settings.APIServerPort}`);
+			let tmpModeLabel = (_CLIMode === 'client') ? 'CLIENT MODE (remote-SQL explorer)' : 'SERVER MODE';
+			_Fable.log.info(`Retold DataBeacon [${tmpModeLabel}] running on port ${_Settings.APIServerPort}`);
 			_Fable.log.info(`API:     http://localhost:${_Settings.APIServerPort}/1.0/`);
 			_Fable.log.info(`Beacon:  http://localhost:${_Settings.APIServerPort}/beacon/`);
 			_Fable.log.info(`Web UI:  http://localhost:${_Settings.APIServerPort}/`);
+			if (_CLIMode === 'client')
+			{
+				_Fable.log.info(`Client-mode DB: ${_Settings.SQLite.SQLiteFilePath}`);
+				_Fable.log.info('Add a connection with Type="RetoldDataBeacon" to talk to a remote databeacon via Ultravisor.');
+			}
 		});
 }
 
