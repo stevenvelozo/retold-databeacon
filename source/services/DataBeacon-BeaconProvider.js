@@ -269,7 +269,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 										Outputs:
 										{
 											TableCount: pResults.length,
-											Tables: pResults.map((pR) => ({ TableName: pR.TableName, ColumnCount: pR.Columns.length }))
+											Tables: pResults.map((pR) => ({ TableName: pR.TableName, ColumnCount: pR.Columns.length, Columns: pR.Columns }))
 										},
 										Log: []
 									});
