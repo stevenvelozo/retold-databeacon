@@ -19,7 +19,11 @@
  */
 const libHTTP = require('http');
 
-const DEFAULT_PATH_ALLOWLIST = [/^\/?1\.0\//];
+// Only hash-prefixed customer routes are reachable through MeadowProxy.
+// Internal databeacon entities (at /1.0/User, /1.0/BeaconConnection, etc.)
+// stay invisible to mesh clients — they remain reachable only through the
+// typed DataBeaconAccess / DataBeaconManagement capabilities.
+const DEFAULT_PATH_ALLOWLIST = [/^\/?1\.0\/[a-z0-9][a-z0-9-]{0,63}\//];
 
 const DEFAULT_OPTIONS = {
 	// Regexes (as strings — compiled at register time) the Path must match.

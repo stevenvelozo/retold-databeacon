@@ -121,11 +121,19 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 	// --------------------------------------------------------------
 	suite('Path allowlist', () =>
 	{
-		test('default allowlist permits /1.0/ paths', () =>
+		test('default allowlist permits hash-prefixed /1.0/{hash}/ paths', () =>
 		{
 			let tmpList = libMeadowProxy._compilePathAllowlist(null);
-			Expect(libMeadowProxy._isPathAllowed('/1.0/Book', tmpList)).to.equal(true);
-			Expect(libMeadowProxy._isPathAllowed('1.0/Author/5', tmpList)).to.equal(true);
+			Expect(libMeadowProxy._isPathAllowed('/1.0/bookstore-mssql/Book', tmpList)).to.equal(true);
+			Expect(libMeadowProxy._isPathAllowed('1.0/analytics/Author/5', tmpList)).to.equal(true);
+			Expect(libMeadowProxy._isPathAllowed('/1.0/db-2024/User', tmpList)).to.equal(true);
+		});
+
+		test('default allowlist rejects unprefixed /1.0/ paths (internal entities)', () =>
+		{
+			let tmpList = libMeadowProxy._compilePathAllowlist(null);
+			Expect(libMeadowProxy._isPathAllowed('/1.0/User', tmpList)).to.equal(false);
+			Expect(libMeadowProxy._isPathAllowed('/1.0/BeaconConnection', tmpList)).to.equal(false);
 		});
 
 		test('default allowlist rejects non-REST paths', () =>
@@ -182,7 +190,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Method: 'GET', Path: '/1.0/Book', RemoteUser: 'engineer-alice' } },
+				{ Settings: { Method: 'GET', Path: '/1.0/bookstore-mssql/Book', RemoteUser: 'engineer-alice' } },
 				{},
 				(pError, pResult) =>
 				{
@@ -193,7 +201,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 					Expect(tmpRows).to.have.length(2);
 
 					Expect(_TestRequests[0].method).to.equal('GET');
-					Expect(_TestRequests[0].path).to.equal('/1.0/Book');
+					Expect(_TestRequests[0].path).to.equal('/1.0/bookstore-mssql/Book');
 					Expect(_TestRequests[0].headers['x-beacon-user']).to.equal('engineer-alice');
 					Expect(_TestRequests[0].headers['x-databeacon-meadowproxy']).to.equal('1');
 					fDone();
@@ -214,7 +222,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Method: 'POST', Path: '/1.0/Book', Body: JSON.stringify({ Name: 'Test' }) } },
+				{ Settings: { Method: 'POST', Path: '/1.0/bookstore-mssql/Book', Body: JSON.stringify({ Name: 'Test' }) } },
 				{},
 				(pError, pResult) =>
 				{
@@ -253,7 +261,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Method: 'DELETE', Path: '/1.0/Book/5' } },
+				{ Settings: { Method: 'DELETE', Path: '/1.0/bookstore-mssql/Book/5' } },
 				{},
 				(pError) =>
 				{
@@ -272,7 +280,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Method: 'GET', Path: '/1.0/Book' } },
+				{ Settings: { Method: 'GET', Path: '/1.0/bookstore-mssql/Book' } },
 				{},
 				(pError, pResult) =>
 				{
@@ -290,7 +298,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Method: 'GET', Path: '/1.0/Book' } },
+				{ Settings: { Method: 'GET', Path: '/1.0/bookstore-mssql/Book' } },
 				{},
 				(pError) =>
 				{
@@ -307,7 +315,7 @@ suite('DataBeacon-MeadowProxyProvider', () =>
 
 			let tmpHandler = tmpService._registered[0].actions.Request.Handler;
 			tmpHandler(
-				{ Settings: { Path: '/1.0/Book' } },
+				{ Settings: { Path: '/1.0/bookstore-mssql/Book' } },
 				{},
 				(pError) =>
 				{

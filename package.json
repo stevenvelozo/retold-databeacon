@@ -1,6 +1,6 @@
 {
 	"name": "retold-databeacon",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
 	"main": "source/Retold-DataBeacon.js",
 	"bin": {
@@ -70,12 +70,12 @@
 	"dependencies": {
 		"fable": "^3.1.70",
 		"fable-serviceproviderbase": "^3.0.19",
-		"meadow": "^2.0.36",
-		"meadow-connection-manager": "^1.0.1",
+		"meadow": "^2.0.37",
+		"meadow-connection-manager": "^1.0.2",
 		"meadow-connection-mssql": "^1.0.21",
 		"meadow-connection-mysql": "^1.0.17",
 		"meadow-connection-postgresql": "^1.0.3",
-		"meadow-connection-retold-databeacon": "^0.0.1",
+		"meadow-connection-retold-databeacon": "^0.0.2",
 		"meadow-connection-sqlite": "^1.0.18",
 		"meadow-endpoints": "^4.0.14",
 		"orator": "^6.0.4",

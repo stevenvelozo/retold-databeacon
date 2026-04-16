@@ -237,6 +237,28 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 							// Create meadow-endpoints
 							let tmpEndpoints = libMeadowEndpoints.new(tmpDAL);
 
+							// Namespace under a hash of the human-readable connection name
+							// so customer tables never collide with internal entities or
+							// other connections' same-named tables.
+							let tmpRouteHash = null;
+							try
+							{
+								let tmpSanitize = require('meadow-connection-manager').sanitizeConnectionName;
+								if (tmpSanitize && pConnectionRecord.Name)
+								{
+									tmpRouteHash = tmpSanitize(pConnectionRecord.Name);
+								}
+							}
+							catch (pSanitizeError)
+							{
+								// If sanitizer unavailable, fall back to connection ID
+								tmpRouteHash = `conn-${pIDBeaconConnection}`;
+							}
+							if (tmpRouteHash)
+							{
+								tmpEndpoints.EndpointPrefix = `/${tmpEndpoints.EndpointVersion}/${tmpRouteHash}/${tmpDAL.scope}`;
+							}
+
 							// Restify can't unregister routes, so only call
 							// connectRoutes() the first time we wire this
 							// connection+table key. On subsequent enables
@@ -270,11 +292,14 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 							this.fable.DAL.IntrospectedTable.doUpdate(tmpUpdateQuery,
 								() =>
 								{
-									this.fable.log.info(`Dynamic endpoints enabled for ${pTableName} (connection #${pIDBeaconConnection})`);
+									let tmpEndpointBase = tmpRouteHash
+										? `/1.0/${tmpRouteHash}/${pTableName}`
+										: `/1.0/${pTableName}`;
+									this.fable.log.info(`Dynamic endpoints enabled for ${pTableName} at [${tmpEndpointBase}] (connection #${pIDBeaconConnection})`);
 									return fCallback(null,
 									{
 										TableName: pTableName,
-										EndpointBase: `/1.0/${pTableName}`,
+										EndpointBase: tmpEndpointBase,
 										ColumnCount: tmpColumns.length
 									});
 								});
