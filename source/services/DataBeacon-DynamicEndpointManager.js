@@ -33,6 +33,7 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 		// Per-connection Meadow instances for provider isolation
 		// Key: connectionId, Value: Meadow instance
 		this._ConnectionMeadows = {};
+		this._ConnectionScopedFables = {};
 
 		// Sticky set of table keys whose Restify routes have been physically
 		// registered at least once since this process started. Restify /
@@ -59,18 +60,11 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 			let tmpMeadowType = tmpCol.MeadowType || 'String';
 			let tmpSize = tmpIntrospector._mapSizeToMeadow(tmpMeadowType, tmpCol.MaxLength, tmpCol.NativeType);
 
-			// Map special meadow types for audit columns
+			// The introspector maps column names to Meadow semantic types
+			// (CreateDate, UpdateDate, AutoGUID, etc.) so we just pass
+			// the MeadowType through. See SchemaIntrospector._mapNativeTypeToMeadow().
 			let tmpSchemaType = tmpMeadowType;
 			let tmpColName = tmpCol.Name;
-
-			if (tmpMeadowType === 'AutoIdentity')
-			{
-				tmpSchemaType = 'AutoIdentity';
-			}
-			else if (tmpColName === 'GUIDSource' || tmpColName.startsWith('GUID'))
-			{
-				tmpSchemaType = 'AutoGUID';
-			}
 
 			tmpSchema.push(
 			{
@@ -79,10 +73,28 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 				Size: tmpSize
 			});
 
-			// Set default values
-			switch (tmpMeadowType)
+			// Set default values based on the schema type.
+			// Meadow-managed fields (AutoIdentity, AutoGUID, CreateDate, etc.)
+			// are auto-populated by the waterfall — we don't set defaults for those.
+			switch (tmpSchemaType)
 			{
 				case 'AutoIdentity':
+					tmpDefaultObject[tmpColName] = 0;
+					break;
+				case 'AutoGUID':
+					tmpDefaultObject[tmpColName] = null;
+					break;
+				case 'CreateDate':
+				case 'UpdateDate':
+				case 'DeleteDate':
+					tmpDefaultObject[tmpColName] = null;
+					break;
+				case 'CreateIDUser':
+				case 'UpdateIDUser':
+				case 'DeleteIDUser':
+					tmpDefaultObject[tmpColName] = 0;
+					break;
+				case 'Deleted':
 					tmpDefaultObject[tmpColName] = 0;
 					break;
 				case 'Numeric':
@@ -126,8 +138,14 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 			return this._ConnectionMeadows[tmpKey];
 		}
 
-		// Create a new Meadow instance that will use this connection's provider
-		let tmpMeadow = libMeadow.new(this.fable);
+		// Create a prototype-scoped fable for this connection.
+		// Each connection gets its own Meadow{Type}Provider binding
+		// so that multiple connections of the same engine type don't
+		// collide on the global fable.Meadow{Type}Provider property.
+		let tmpScopedFable = Object.create(this.fable);
+		this._ConnectionScopedFables[tmpKey] = tmpScopedFable;
+
+		let tmpMeadow = libMeadow.new(tmpScopedFable);
 		this._ConnectionMeadows[tmpKey] = tmpMeadow;
 
 		return tmpMeadow;
@@ -221,14 +239,24 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 							let tmpConnectionInstance = tmpConnectionBridge.getConnectionInstance(pIDBeaconConnection);
 							let tmpProviderKey = `Meadow${tmpProviderName}Provider`;
 
-							// Register the external provider on fable so Meadow DAL can find it.
-							// Meadow looks for fable.Meadow{Type}Provider when setProvider is called.
-							// We overwrite it here -- the internal SQLite provider remains available
-							// as fable.MeadowSQLiteProvider for the internal DAL.
-							this.fable[tmpProviderKey] = tmpConnectionInstance;
-
-							// Get or create a Meadow for this connection
+							// Get or create a scoped Meadow for this connection FIRST
+							// (this also creates the scoped fable via _getMeadowForConnection)
 							let tmpMeadow = this._getMeadowForConnection(pIDBeaconConnection, tmpType);
+
+							// Bind the provider on this connection's SCOPED fable.
+							// Each connection gets its own prototype-linked fable copy
+							// so multiple connections of the same engine type (e.g. two
+							// MySQL databases) don't collide on the global provider key.
+							let tmpScopedFable = this._ConnectionScopedFables[String(pIDBeaconConnection)];
+							if (tmpScopedFable)
+							{
+								tmpScopedFable[tmpProviderKey] = tmpConnectionInstance;
+							}
+							else
+							{
+								// Fallback: single-connection case, set on global fable
+								this.fable[tmpProviderKey] = tmpConnectionInstance;
+							}
 
 							// Create DAL entity
 							let tmpDAL = tmpMeadow.loadFromPackageObject(tmpMeadowSchema);

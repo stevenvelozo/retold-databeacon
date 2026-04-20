@@ -99,7 +99,7 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 								IsPrimaryKey: tmpRow.COLUMN_KEY === 'PRI',
 								IsAutoIncrement: (tmpRow.EXTRA || '').indexOf('auto_increment') >= 0,
 								DefaultValue: tmpRow.COLUMN_DEFAULT,
-								MeadowType: this._mapNativeTypeToMeadow(tmpRow.DATA_TYPE, tmpRow.COLUMN_KEY === 'PRI', (tmpRow.EXTRA || '').indexOf('auto_increment') >= 0)
+								MeadowType: this._mapNativeTypeToMeadow(tmpRow.DATA_TYPE, tmpRow.COLUMN_KEY === 'PRI', (tmpRow.EXTRA || '').indexOf('auto_increment') >= 0, tmpRow.COLUMN_NAME)
 							});
 						}
 						return fCallback(null, tmpColumns);
@@ -163,7 +163,7 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 								IsPrimaryKey: tmpRow.is_primary_key,
 								IsAutoIncrement: tmpIsAuto,
 								DefaultValue: tmpRow.column_default,
-								MeadowType: this._mapNativeTypeToMeadow(tmpRow.data_type, tmpRow.is_primary_key, tmpIsAuto)
+								MeadowType: this._mapNativeTypeToMeadow(tmpRow.data_type, tmpRow.is_primary_key, tmpIsAuto, tmpRow.column_name)
 							});
 						}
 						return fCallback(null, tmpColumns);
@@ -240,7 +240,7 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 									IsPrimaryKey: !!tmpRow.IS_PRIMARY_KEY,
 									IsAutoIncrement: !!tmpRow.IS_IDENTITY,
 									DefaultValue: tmpRow.COLUMN_DEFAULT,
-									MeadowType: this._mapNativeTypeToMeadow(tmpRow.DATA_TYPE, !!tmpRow.IS_PRIMARY_KEY, !!tmpRow.IS_IDENTITY)
+									MeadowType: this._mapNativeTypeToMeadow(tmpRow.DATA_TYPE, !!tmpRow.IS_PRIMARY_KEY, !!tmpRow.IS_IDENTITY, tmpRow.COLUMN_NAME)
 								});
 							}
 							return fCallback(null, tmpColumns);
@@ -297,7 +297,7 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 							IsPrimaryKey: tmpIsPK,
 							IsAutoIncrement: tmpIsPK && (tmpRow.type || '').toUpperCase().indexOf('INTEGER') >= 0,
 							DefaultValue: tmpRow.dflt_value,
-							MeadowType: this._mapNativeTypeToMeadow(tmpRow.type || 'TEXT', tmpIsPK, tmpIsPK && (tmpRow.type || '').toUpperCase().indexOf('INTEGER') >= 0)
+							MeadowType: this._mapNativeTypeToMeadow(tmpRow.type || 'TEXT', tmpIsPK, tmpIsPK && (tmpRow.type || '').toUpperCase().indexOf('INTEGER') >= 0, tmpRow.name)
 						});
 					}
 					return fCallback(null, tmpColumns);
@@ -317,11 +317,26 @@ class DataBeaconSchemaIntrospector extends libFableServiceProviderBase
 	/**
 	 * Map a native database type to a Meadow type.
 	 */
-	_mapNativeTypeToMeadow(pNativeType, pIsPrimaryKey, pIsAutoIncrement)
+	_mapNativeTypeToMeadow(pNativeType, pIsPrimaryKey, pIsAutoIncrement, pColumnName)
 	{
 		if (pIsPrimaryKey && pIsAutoIncrement)
 		{
 			return 'AutoIdentity';
+		}
+
+		// Recognize standard Meadow audit columns by name.
+		// The PascalCase naming convention (CreateDate, UpdatingIDUser, etc.)
+		// is distinctive to Meadow schemas — virtually no other system uses it.
+		if (pColumnName)
+		{
+			if (pColumnName.startsWith('GUID'))       { return 'AutoGUID'; }
+			if (pColumnName === 'CreateDate')          { return 'CreateDate'; }
+			if (pColumnName === 'CreatingIDUser')      { return 'CreateIDUser'; }
+			if (pColumnName === 'UpdateDate')          { return 'UpdateDate'; }
+			if (pColumnName === 'UpdatingIDUser')      { return 'UpdateIDUser'; }
+			if (pColumnName === 'Deleted')             { return 'Deleted'; }
+			if (pColumnName === 'DeleteDate')          { return 'DeleteDate'; }
+			if (pColumnName === 'DeletingIDUser')      { return 'DeleteIDUser'; }
 		}
 
 		let tmpType = (pNativeType || 'TEXT').toUpperCase();
