@@ -1,6 +1,6 @@
 {
 	"name": "retold-databeacon",
-	"version": "0.0.9",
+	"version": "0.0.10",
 	"description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
 	"main": "source/Retold-DataBeacon.js",
 	"bin": {
@@ -91,6 +91,13 @@
 					"Required": false
 				}
 			]
+		},
+		"docker": {
+			"image": "retold-databeacon",
+			"dockerfile": "retold-databeacon.Dockerfile",
+			"dataMountPath": "/app/data",
+			"configMountPath": "/app/data/config.json",
+			"exposedPort": 8500
 		}
 	},
 	"author": "Steven Velozo <steven@velozo.com> (http://velozo.com/)",
