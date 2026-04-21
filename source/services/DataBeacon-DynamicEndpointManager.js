@@ -46,6 +46,38 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 	}
 
 	/**
+	 * Map a Meadow semantic type to its JSON Schema equivalent.  meadow-endpoints
+	 * walks `DAL.jsonSchema.properties` during create/update, so we build a
+	 * proper properties map rather than leaving the default empty JSON schema
+	 * meadow-schema hands back when no JsonSchema is supplied.
+	 */
+	_mapMeadowTypeToJsonSchemaType(pMeadowType)
+	{
+		switch (pMeadowType)
+		{
+			case 'AutoIdentity':
+			case 'CreateIDUser':
+			case 'UpdateIDUser':
+			case 'DeleteIDUser':
+			case 'Numeric':
+				return 'number';
+			case 'Boolean':
+			case 'Deleted':
+				return 'boolean';
+			case 'CreateDate':
+			case 'UpdateDate':
+			case 'DeleteDate':
+			case 'DateTime':
+				return 'string';
+			case 'AutoGUID':
+			case 'String':
+			case 'Text':
+			default:
+				return 'string';
+		}
+	}
+
+	/**
 	 * Build a Meadow schema object from introspected column definitions.
 	 */
 	_buildMeadowSchema(pTableName, pColumns)
@@ -53,6 +85,7 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 		let tmpIntrospector = this.fable.DataBeaconSchemaIntrospector;
 		let tmpSchema = [];
 		let tmpDefaultObject = {};
+		let tmpJsonSchemaProperties = {};
 
 		for (let i = 0; i < pColumns.length; i++)
 		{
@@ -72,6 +105,11 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 				Type: tmpSchemaType,
 				Size: tmpSize
 			});
+
+			tmpJsonSchemaProperties[tmpColName] =
+			{
+				type: this._mapMeadowTypeToJsonSchemaType(tmpSchemaType)
+			};
 
 			// Set default values based on the schema type.
 			// Meadow-managed fields (AutoIdentity, AutoGUID, CreateDate, etc.)
@@ -121,7 +159,14 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 			DefaultIdentifier: tmpDefaultIdentifier,
 			Domain: 'Default',
 			Schema: tmpSchema,
-			DefaultObject: tmpDefaultObject
+			DefaultObject: tmpDefaultObject,
+			JsonSchema:
+			{
+				title: pTableName,
+				type: 'object',
+				properties: tmpJsonSchemaProperties,
+				required: []
+			}
 		};
 	}
 

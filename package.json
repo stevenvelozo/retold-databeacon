@@ -1,6 +1,6 @@
 {
 	"name": "retold-databeacon",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
 	"main": "source/Retold-DataBeacon.js",
 	"bin": {
@@ -54,6 +54,45 @@
 		"REST",
 		"ultravisor"
 	],
+	"retoldBeacon": {
+		"displayName": "Retold Databeacon",
+		"description": "REST/meadow proxy over a connected database, with schema introspection and endpoint enable/disable.",
+		"category": "database",
+		"mode": "standalone-service",
+		"bin": "bin/retold-databeacon.js",
+		"argTemplate": [
+			"serve",
+			"--port",
+			{
+				"fromLabPath": "Port"
+			},
+			"--config",
+			{
+				"fromLabPath": "ConfigPath"
+			}
+		],
+		"healthCheck": {
+			"path": "/beacon/capabilities"
+		},
+		"defaultPort": 8500,
+		"requiresUltravisor": false,
+		"configTemplate": {
+			"APIServerPort": "{{Port}}",
+			"SQLite": {
+				"SQLiteFilePath": "{{BeaconDir}}/databeacon.sqlite"
+			}
+		},
+		"configForm": {
+			"Fields": [
+				{
+					"Name": "EngineDatabase",
+					"Label": "Target engine / database",
+					"Type": "lab-engine-database-picker",
+					"Required": false
+				}
+			]
+		}
+	},
 	"author": "Steven Velozo <steven@velozo.com> (http://velozo.com/)",
 	"license": "MIT",
 	"bugs": {
