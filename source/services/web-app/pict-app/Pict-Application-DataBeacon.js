@@ -8,6 +8,8 @@
 const libPictApplication = require('pict-application');
 const libPictSectionModal = require('pict-section-modal');
 const libPictSectionCode = require('pict-section-code');
+const libPictRouter = require('pict-router');
+const libPictRouterConfig = require('./providers/PictRouter-DataBeacon-Configuration.json');
 
 const libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
 const libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
@@ -85,6 +87,12 @@ class DataBeaconApplication extends libPictApplication
 
 		// Modal service (pict-section-modal exposes show/confirm/toast via pict.views.PictSectionModal)
 		this.pict.addView('PictSectionModal', libPictSectionModal.default_configuration, libPictSectionModal);
+
+		// Router -- Navigo in hash mode.  Every navigation and action in the
+		// DataBeacon web app flows through `<a href="#/...">` anchors dispatched
+		// via this router; there are no addEventListener callbacks in view
+		// lifecycle hooks (pict-first imperative).
+		this.pict.addProvider('PictRouter', libPictRouterConfig, libPictRouter);
 	}
 
 	onAfterInitializeAsync(fCallback)
@@ -168,17 +176,208 @@ class DataBeaconApplication extends libPictApplication
 		return super.onAfterInitializeAsync(fCallback);
 	}
 
-	/**
-	 * Public navigation hook (also exposed on `window.DataBeaconApp` for legacy).
-	 * Delegates to the Layout view which owns the active-panel state.
-	 * @param {string} pViewName
-	 */
-	navigateTo(pViewName)
+	// ── Router action handlers ──────────────────────────────────────────────
+	// Every `{~LV:Pict.PictApplication.method(...)~}` route target resolves
+	// here.  Handlers are intentionally thin dispatchers into the owning
+	// view or provider -- they exist so routes can be the single source of
+	// truth for how actions fire, without every view shipping its own
+	// event-delegation code.
+
+	setActiveView(pViewName)
 	{
+		this.pict.AppData.CurrentView = pViewName;
 		if (this.pict.views.Layout && typeof this.pict.views.Layout.setActiveView === 'function')
 		{
 			this.pict.views.Layout.setActiveView(pViewName);
 		}
+	}
+
+	// Legacy shim kept for window.DataBeaconApp.navigateTo() callers.  New
+	// code should hit the route `#/view/<name>` anchors instead.
+	navigateTo(pViewName) { return this.setActiveView(pViewName); }
+
+	// ── Connections ─────────────────────────────────────────────────────────
+	createConnection()                 { return this._form('ConnectionForm')._submit(); }
+	connectConnection(pID)             { return this.pict.providers.DataBeaconProvider.connectConnection(parseInt(pID, 10)); }
+	disconnectConnection(pID)          { return this.pict.providers.DataBeaconProvider.disconnectConnection(parseInt(pID, 10)); }
+	testConnection(pID)
+	{
+		let tmpModal = this.pict.views.PictSectionModal;
+		this.pict.providers.DataBeaconProvider.testConnection(parseInt(pID, 10),
+			(pErr, pData) =>
+			{
+				if (pData && pData.Success) { tmpModal.toast('Connection test succeeded.', { type: 'success' }); }
+				else { tmpModal.toast('Connection test failed: ' + (pData ? pData.Error : 'Unknown error'), { type: 'error' }); }
+			});
+	}
+	deleteConnection(pID)
+	{
+		let tmpModal = this.pict.views.PictSectionModal;
+		tmpModal.confirm('Are you sure you want to delete this connection?',
+			{
+				title: 'Delete Connection',
+				confirmLabel: 'Delete',
+				cancelLabel: 'Cancel',
+				dangerous: true
+			}).then((pConfirmed) =>
+			{
+				if (pConfirmed) { this.pict.providers.DataBeaconProvider.deleteConnection(parseInt(pID, 10)); }
+			});
+	}
+	introspectConnection(pID)
+	{
+		let tmpID = parseInt(pID, 10);
+		let tmpModal = this.pict.views.PictSectionModal;
+		this.pict.providers.DataBeaconProvider.introspect(tmpID,
+			(pErr, pData) =>
+			{
+				if (pData && pData.Success)
+				{
+					this.pict.AppData.SelectedConnectionID = tmpID;
+					this.setActiveView('Introspection');
+				}
+				else
+				{
+					tmpModal.toast('Introspection failed: ' + (pData ? pData.Error : 'Unknown error'), { type: 'error' });
+				}
+			});
+	}
+
+	// ── Introspection ───────────────────────────────────────────────────────
+	runIntrospect()
+	{
+		let tmpView = this.pict.views.IntrospectionControls;
+		if (tmpView && typeof tmpView._runIntrospect === 'function') { tmpView._runIntrospect(); }
+	}
+	introspectAll()
+	{
+		let tmpView = this.pict.views.IntrospectionControls;
+		if (tmpView && typeof tmpView._introspectAll === 'function') { tmpView._introspectAll(); }
+	}
+	selectIntrospectionConnection(pID)
+	{
+		let tmpView = this.pict.views.IntrospectionControls;
+		if (tmpView && typeof tmpView._selectConnection === 'function') { tmpView._selectConnection(pID); }
+	}
+	viewTable(pConnID, pTable)
+	{
+		let tmpView = this.pict.views.IntrospectionTables;
+		if (tmpView && typeof tmpView._viewTableDetails === 'function') { tmpView._viewTableDetails(parseInt(pConnID, 10), pTable); }
+	}
+
+	// ── Endpoints ───────────────────────────────────────────────────────────
+	refreshEndpoints()                 { return this.pict.providers.DataBeaconProvider.loadEndpoints(); }
+	enableEndpoint(pConnID, pTable)    { return this.pict.providers.DataBeaconProvider.enableEndpoint(parseInt(pConnID, 10), pTable); }
+	disableEndpoint(pConnID, pTable)   { return this.pict.providers.DataBeaconProvider.disableEndpoint(parseInt(pConnID, 10), pTable); }
+	browseEndpoint(pTableName)
+	{
+		this.pict.AppData.SelectedTableName = pTableName;
+		if (!this.pict.AppData.RecordBrowser) { this.pict.AppData.RecordBrowser = {}; }
+		// Always restart paging from row 0 when jumping from Endpoints.
+		this.pict.AppData.RecordBrowser.CursorStart = 0;
+		let tmpPageSize = this.pict.AppData.RecordBrowser.PageSize || 50;
+		this.setActiveView('Records');
+		let tmpProv = this.pict.providers.DataBeaconProvider;
+		if (tmpProv && typeof tmpProv.loadRecords === 'function') { tmpProv.loadRecords(pTableName, 0, tmpPageSize); }
+	}
+
+	// ── Records ─────────────────────────────────────────────────────────────
+	recordsPrev()
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._pagePrev === 'function') { tmpView._pagePrev(); }
+	}
+	recordsNext()
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._pageNext === 'function') { tmpView._pageNext(); }
+	}
+	recordsLoad()
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._loadCurrent === 'function') { tmpView._loadCurrent(); }
+	}
+	recordsExport(pFormat)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._exportRecords === 'function') { tmpView._exportRecords(pFormat); }
+	}
+	selectRecordsTable(pTableName)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._selectTable === 'function') { tmpView._selectTable(pTableName); }
+	}
+	changeRecordsPageSize(pSize)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._setPageSize === 'function') { tmpView._setPageSize(pSize); }
+	}
+	changeRecordsStart(pStart)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._setStart === 'function') { tmpView._setStart(pStart); }
+	}
+
+	// ── Queries ─────────────────────────────────────────────────────────────
+	executeQuery()
+	{
+		let tmpView = this.pict.views.QueryPanel;
+		if (tmpView && typeof tmpView._executeQuery === 'function') { tmpView._executeQuery(); }
+	}
+	saveQueryFromPanel()
+	{
+		let tmpView = this.pict.views.QueryPanel;
+		if (tmpView && typeof tmpView._saveQuery === 'function') { tmpView._saveQuery(); }
+	}
+	queryExport(pFormat)
+	{
+		let tmpView = this.pict.views.QueryPanel;
+		if (tmpView && typeof tmpView._exportQueryResult === 'function') { tmpView._exportQueryResult(pFormat); }
+	}
+
+	// ── Saved queries ───────────────────────────────────────────────────────
+	toggleSavedPanel()
+	{
+		let tmpView = this.pict.views.SavedQueriesList;
+		if (tmpView && typeof tmpView._togglePanel === 'function') { tmpView._togglePanel(); }
+	}
+	loadSavedQuery(pGUID)
+	{
+		let tmpView = this.pict.views.SavedQueriesList;
+		if (tmpView && typeof tmpView._loadRecord === 'function') { tmpView._loadRecord(pGUID); }
+	}
+	editSavedQuery(pGUID)
+	{
+		let tmpView = this.pict.views.SavedQueriesList;
+		if (tmpView && typeof tmpView._editQuery === 'function') { tmpView._editQuery(pGUID); }
+	}
+	deleteSavedQuery(pGUID)
+	{
+		let tmpView = this.pict.views.SavedQueriesList;
+		if (tmpView && typeof tmpView._deleteQuery === 'function') { tmpView._deleteQuery(pGUID); }
+	}
+
+	// ── Theme ───────────────────────────────────────────────────────────────
+	cycleThemeMode()
+	{
+		let tmpProv = this.pict.providers['DataBeacon-Theme'];
+		if (tmpProv && typeof tmpProv.cycleMode === 'function') { tmpProv.cycleMode(); }
+	}
+	openThemePicker()
+	{
+		let tmpView = this.pict.views.ThemeSwitcher;
+		if (tmpView && typeof tmpView._openPicker === 'function') { tmpView._openPicker(); }
+	}
+	applyTheme(pKey)
+	{
+		let tmpView = this.pict.views.ThemeSwitcher;
+		if (tmpView && typeof tmpView._applyThemeFromTile === 'function') { tmpView._applyThemeFromTile(pKey); }
+	}
+
+	// ── Helpers ─────────────────────────────────────────────────────────────
+	_form(pViewName)
+	{
+		return this.pict.views[pViewName] || { _submit: () => {} };
 	}
 }
 

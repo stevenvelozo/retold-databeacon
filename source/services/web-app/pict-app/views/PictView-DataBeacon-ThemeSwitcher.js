@@ -123,12 +123,12 @@ const _ViewConfiguration =
 			Hash: 'DataBeacon-ThemeSwitcher-Template',
 			Template: /*html*/`
 <div id="DataBeacon-ThemeSwitcher-Root" class="databeacon-theme-switcher">
-	<button type="button" class="databeacon-theme-switcher-btn" data-databeacon-action="cycle-mode" title="{~D:AppData.ThemeSwitcher.ModeTitle~}">
+	<a class="databeacon-theme-switcher-btn" href="#/theme/cycle-mode" title="{~D:AppData.ThemeSwitcher.ModeTitle~}">
 		<span data-databeacon-icon="{~D:AppData.ThemeSwitcher.ModeIcon~}" data-icon-size="16"></span>
-	</button>
-	<button type="button" class="databeacon-theme-switcher-btn" data-databeacon-action="open-theme-picker" title="Choose theme">
+	</a>
+	<a class="databeacon-theme-switcher-btn" href="#/theme/picker/open" title="Choose theme">
 		<span data-databeacon-icon="palette" data-icon-size="16"></span>
-	</button>
+	</a>
 </div>`
 		},
 		{
@@ -139,7 +139,7 @@ const _ViewConfiguration =
 		{
 			Hash: 'DataBeacon-ThemeSwitcher-Tile',
 			Template: /*html*/`
-<button type="button" class="databeacon-theme-tile {~D:Record.SelectedClass~}" data-databeacon-action="apply-theme" data-theme-key="{~D:Record.Key~}">
+<a class="databeacon-theme-tile {~D:Record.SelectedClass~}" href="#/theme/{~D:Record.Key~}/apply">
 	<div class="databeacon-theme-tile-header">
 		<span class="databeacon-theme-tile-name">{~D:Record.Label~}</span>
 		{~TIf:DataBeacon-ThemeSwitcher-Tile-CurrentBadge::Record.IsCurrent^TRUE^x~}
@@ -151,7 +151,7 @@ const _ViewConfiguration =
 		<span class="databeacon-theme-tile-swatch" style="background: {~D:Record.Swatch3~};"></span>
 		<span class="databeacon-theme-tile-swatch" style="background: {~D:Record.Swatch4~};"></span>
 	</div>
-</button>`
+</a>`
 		},
 		{
 			Hash: 'DataBeacon-ThemeSwitcher-Tile-CurrentBadge',
@@ -182,7 +182,6 @@ class PictViewDataBeaconThemeSwitcher extends libPictView
 	constructor(pFable, pOptions, pServiceHash)
 	{
 		super(pFable, pOptions, pServiceHash);
-		this._ModalListenerAttached = false;
 	}
 
 	onBeforeRender(pRenderable)
@@ -205,42 +204,8 @@ class PictViewDataBeaconThemeSwitcher extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ThemeSwitcher-Root');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-ThemeSwitcher-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-			});
-		}
-
-		// Delegate clicks on theme tiles inside the pict-section-modal.
-		// The modal dialog lives at document.body level and is re-created on
-		// each open/close, but its container element stays around; attaching
-		// once on document is the most robust wiring.
-		if (!this._ModalListenerAttached && typeof document !== 'undefined')
-		{
-			document.addEventListener('click', (pEvent) =>
-			{
-				let tmpTile = pEvent.target.closest('[data-databeacon-action="apply-theme"]');
-				if (!tmpTile) return;
-				let tmpKey = tmpTile.getAttribute('data-theme-key');
-				this._applyThemeFromTile(tmpKey);
-			});
-			this._ModalListenerAttached = true;
-		}
-
+		this.pict.CSSMap.injectCSS();
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-	}
-
-	_handleAction(pAction)
-	{
-		let tmpTheme = this.pict.providers['DataBeacon-Theme'];
-		if (!tmpTheme) return;
-		if (pAction === 'cycle-mode') tmpTheme.cycleMode();
-		else if (pAction === 'open-theme-picker') this._openPicker();
 	}
 
 	_openPicker()

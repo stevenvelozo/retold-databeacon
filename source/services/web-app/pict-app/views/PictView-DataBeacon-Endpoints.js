@@ -23,10 +23,10 @@ const _ViewConfiguration =
 	<h1>Active REST Endpoints</h1>
 	<div class="section">
 		<div class="button-row">
-			<button class="btn btn-secondary" data-databeacon-action="refresh">
+			<a class="btn btn-secondary" href="#/endpoints/refresh">
 				<span data-databeacon-icon="refresh" data-icon-size="16"></span>
 				Refresh
-			</button>
+			</a>
 		</div>
 	</div>
 	{~TemplateIfAbsolute:DataBeacon-Endpoints-Empty:AppData.Endpoints:AppData.Endpoints.length^==^0~}
@@ -59,12 +59,12 @@ const _ViewConfiguration =
 	<td>{~D:Record.ConnectionType~}</td>
 	<td><code>{~D:Record.EndpointBase~}</code></td>
 	<td class="actions-cell">
-		<button class="btn btn-small btn-primary" data-databeacon-action="browse" data-table-name="{~D:Record.TableName~}">
+		<a class="btn btn-small btn-primary" href="#/endpoints/{~D:Record.TableName~}/browse">
 			<span data-databeacon-icon="eye" data-icon-size="14"></span> Browse
-		</button>
-		<button class="btn btn-small btn-secondary" data-databeacon-action="open-api" data-api-url="{~D:Record.EndpointAPIURL~}">
+		</a>
+		<a class="btn btn-small btn-secondary" href="{~D:Record.EndpointAPIURL~}" target="_blank" rel="noopener">
 			<span data-databeacon-icon="external-link" data-icon-size="14"></span> API
-		</button>
+		</a>
 	</td>
 </tr>`
 		}
@@ -93,44 +93,7 @@ class PictViewDataBeaconEndpoints extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-Endpoints-Root');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-Endpoints-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-			});
-		}
-
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-	}
-
-	_handleAction(pAction, pData)
-	{
-		let tmpProvider = this.pict.providers.DataBeaconProvider;
-		switch (pAction)
-		{
-			case 'refresh':
-				tmpProvider.loadEndpoints();
-				break;
-			case 'browse':
-				if (pData.tableName)
-				{
-					this.pict.AppData.SelectedTableName = pData.tableName;
-					// Always restart paging from row 0 when jumping from Endpoints.
-					if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
-					this.pict.AppData.RecordBrowser.CursorStart = 0;
-					let tmpPageSize = this.pict.AppData.RecordBrowser.PageSize || 50;
-					tmpProvider.loadRecords(pData.tableName, 0, tmpPageSize);
-					if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Records');
-				}
-				break;
-			case 'open-api':
-				if (pData.apiUrl) window.open(pData.apiUrl, '_blank');
-				break;
-		}
 	}
 }
 

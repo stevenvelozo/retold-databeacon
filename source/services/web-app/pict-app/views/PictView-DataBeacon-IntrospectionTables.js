@@ -36,7 +36,7 @@ const _ViewConfiguration =
 			Template: /*html*/`
 <p class="empty-state">
 	No databases connected. Go to
-	<a href="javascript:void(0)" data-databeacon-action="goto-connections">Connections</a>
+	<a href="#/view/connections">Connections</a>
 	to add and connect a database first.
 </p>`
 		},
@@ -64,7 +64,7 @@ const _ViewConfiguration =
 			Hash: 'DataBeacon-IntrospectionTables-Row',
 			Template: /*html*/`
 <tr>
-	<td><a href="javascript:void(0)" data-databeacon-action="view-table" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">{~D:Record.TableName~}</a></td>
+	<td><a href="#/introspection/table/{~D:Record.ConnectionID~}/{~D:Record.TableName~}">{~D:Record.TableName~}</a></td>
 	<td>{~D:Record.ColumnCount~}</td>
 	<td>{~D:Record.RowCountDisplay~}</td>
 	<td>{~TIf:DataBeacon-IntrospectionTables-Row-EndpointBadge::Record.EndpointsEnabled^TRUE^x~}</td>
@@ -81,16 +81,16 @@ const _ViewConfiguration =
 		{
 			Hash: 'DataBeacon-IntrospectionTables-Row-Enable',
 			Template: /*html*/`
-<button class="btn btn-small btn-primary" data-databeacon-action="enable-endpoint" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">
+<a class="btn btn-small btn-primary" href="#/endpoints/{~D:Record.ConnectionID~}/{~D:Record.TableName~}/enable">
 	<span data-databeacon-icon="check" data-icon-size="14"></span> Enable
-</button>`
+</a>`
 		},
 		{
 			Hash: 'DataBeacon-IntrospectionTables-Row-Disable',
 			Template: /*html*/`
-<button class="btn btn-small btn-warning" data-databeacon-action="disable-endpoint" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">
+<a class="btn btn-small btn-warning" href="#/endpoints/{~D:Record.ConnectionID~}/{~D:Record.TableName~}/disable">
 	<span data-databeacon-icon="x" data-icon-size="14"></span> Disable
-</button>`
+</a>`
 		},
 		{
 			Hash: 'DataBeacon-IntrospectionTables-DetailModal',
@@ -148,42 +148,16 @@ class PictViewDataBeaconIntrospectionTables extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-IntrospectionTables-Root');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-IntrospectionTables-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpEl = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpEl) return;
-				pEvent.preventDefault();
-				this._handleAction(tmpEl.getAttribute('data-databeacon-action'), tmpEl.dataset);
-			});
-		}
-
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
-	_handleAction(pAction, pData)
+	// Router-handler entry point (Application.viewTable).  Opens a modal
+	// with the table's column details.  Kept imperative to host the modal
+	// orchestration; the actual "which table?" dispatch is driven by the
+	// #/introspection/table/:connId/:table route.
+	_viewTableDetails(pConnectionID, pTableName)
 	{
-		let tmpProvider = this.pict.providers.DataBeaconProvider;
-		let tmpCID = parseInt(pData.connectionId, 10);
-		let tmpTable = pData.tableName;
-
-		switch (pAction)
-		{
-			case 'goto-connections':
-				if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Connections');
-				break;
-			case 'enable-endpoint':
-				if (!isNaN(tmpCID) && tmpTable) tmpProvider.enableEndpoint(tmpCID, tmpTable);
-				break;
-			case 'disable-endpoint':
-				if (!isNaN(tmpCID) && tmpTable) tmpProvider.disableEndpoint(tmpCID, tmpTable);
-				break;
-			case 'view-table':
-				if (!isNaN(tmpCID) && tmpTable) this._showDetail(tmpCID, tmpTable);
-				break;
-		}
+		this._showDetail(parseInt(pConnectionID, 10), pTableName);
 	}
 
 	_showDetail(pConnectionID, pTableName)

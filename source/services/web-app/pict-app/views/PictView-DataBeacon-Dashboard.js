@@ -44,14 +44,14 @@ const _ViewConfiguration =
 	<div class="section">
 		<h2>Quick Actions</h2>
 		<div class="button-row">
-			<button class="btn btn-primary" data-databeacon-action="navigate" data-view="Connections">
+			<a class="btn btn-primary" href="#/view/connections">
 				<span data-databeacon-icon="connections" data-icon-size="16"></span>
 				Manage Connections
-			</button>
-			<button class="btn btn-secondary" data-databeacon-action="navigate" data-view="Endpoints">
+			</a>
+			<a class="btn btn-secondary" href="#/view/endpoints">
 				<span data-databeacon-icon="endpoints" data-icon-size="16"></span>
 				View Endpoints
-			</button>
+			</a>
 		</div>
 	</div>
 
@@ -103,27 +103,7 @@ class PictViewDataBeaconDashboard extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-View-Dashboard');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-Dashboard-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			// A fresh DOM node is produced on every render, so we always attach.
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-			});
-		}
-
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-	}
-
-	_handleAction(pAction, pData)
-	{
-		if (pAction === 'navigate' && pData.view && this.pict.views.Layout)
-		{
-			this.pict.views.Layout.setActiveView(pData.view);
-		}
 	}
 }
 

@@ -6454,6 +6454,8 @@
       const libPictApplication = require('pict-application');
       const libPictSectionModal = require('pict-section-modal');
       const libPictSectionCode = require('pict-section-code');
+      const libPictRouter = require('pict-router');
+      const libPictRouterConfig = require('./providers/PictRouter-DataBeacon-Configuration.json');
       const libDataBeaconProvider = require('./providers/Pict-Provider-DataBeacon.js');
       const libDataBeaconIconsProvider = require('./providers/Pict-Provider-DataBeacon-Icons.js');
       const libDataBeaconThemeProvider = require('./providers/Pict-Provider-DataBeacon-Theme.js');
@@ -6525,6 +6527,12 @@
 
           // Modal service (pict-section-modal exposes show/confirm/toast via pict.views.PictSectionModal)
           this.pict.addView('PictSectionModal', libPictSectionModal.default_configuration, libPictSectionModal);
+
+          // Router -- Navigo in hash mode.  Every navigation and action in the
+          // DataBeacon web app flows through `<a href="#/...">` anchors dispatched
+          // via this router; there are no addEventListener callbacks in view
+          // lifecycle hooks (pict-first imperative).
+          this.pict.addProvider('PictRouter', libPictRouterConfig, libPictRouter);
         }
         onAfterInitializeAsync(fCallback) {
           // Set up application state.
@@ -6605,15 +6613,244 @@
           return super.onAfterInitializeAsync(fCallback);
         }
 
-        /**
-         * Public navigation hook (also exposed on `window.DataBeaconApp` for legacy).
-         * Delegates to the Layout view which owns the active-panel state.
-         * @param {string} pViewName
-         */
-        navigateTo(pViewName) {
+        // ── Router action handlers ──────────────────────────────────────────────
+        // Every `{~LV:Pict.PictApplication.method(...)~}` route target resolves
+        // here.  Handlers are intentionally thin dispatchers into the owning
+        // view or provider -- they exist so routes can be the single source of
+        // truth for how actions fire, without every view shipping its own
+        // event-delegation code.
+
+        setActiveView(pViewName) {
+          this.pict.AppData.CurrentView = pViewName;
           if (this.pict.views.Layout && typeof this.pict.views.Layout.setActiveView === 'function') {
             this.pict.views.Layout.setActiveView(pViewName);
           }
+        }
+
+        // Legacy shim kept for window.DataBeaconApp.navigateTo() callers.  New
+        // code should hit the route `#/view/<name>` anchors instead.
+        navigateTo(pViewName) {
+          return this.setActiveView(pViewName);
+        }
+
+        // ── Connections ─────────────────────────────────────────────────────────
+        createConnection() {
+          return this._form('ConnectionForm')._submit();
+        }
+        connectConnection(pID) {
+          return this.pict.providers.DataBeaconProvider.connectConnection(parseInt(pID, 10));
+        }
+        disconnectConnection(pID) {
+          return this.pict.providers.DataBeaconProvider.disconnectConnection(parseInt(pID, 10));
+        }
+        testConnection(pID) {
+          let tmpModal = this.pict.views.PictSectionModal;
+          this.pict.providers.DataBeaconProvider.testConnection(parseInt(pID, 10), (pErr, pData) => {
+            if (pData && pData.Success) {
+              tmpModal.toast('Connection test succeeded.', {
+                type: 'success'
+              });
+            } else {
+              tmpModal.toast('Connection test failed: ' + (pData ? pData.Error : 'Unknown error'), {
+                type: 'error'
+              });
+            }
+          });
+        }
+        deleteConnection(pID) {
+          let tmpModal = this.pict.views.PictSectionModal;
+          tmpModal.confirm('Are you sure you want to delete this connection?', {
+            title: 'Delete Connection',
+            confirmLabel: 'Delete',
+            cancelLabel: 'Cancel',
+            dangerous: true
+          }).then(pConfirmed => {
+            if (pConfirmed) {
+              this.pict.providers.DataBeaconProvider.deleteConnection(parseInt(pID, 10));
+            }
+          });
+        }
+        introspectConnection(pID) {
+          let tmpID = parseInt(pID, 10);
+          let tmpModal = this.pict.views.PictSectionModal;
+          this.pict.providers.DataBeaconProvider.introspect(tmpID, (pErr, pData) => {
+            if (pData && pData.Success) {
+              this.pict.AppData.SelectedConnectionID = tmpID;
+              this.setActiveView('Introspection');
+            } else {
+              tmpModal.toast('Introspection failed: ' + (pData ? pData.Error : 'Unknown error'), {
+                type: 'error'
+              });
+            }
+          });
+        }
+
+        // ── Introspection ───────────────────────────────────────────────────────
+        runIntrospect() {
+          let tmpView = this.pict.views.IntrospectionControls;
+          if (tmpView && typeof tmpView._runIntrospect === 'function') {
+            tmpView._runIntrospect();
+          }
+        }
+        introspectAll() {
+          let tmpView = this.pict.views.IntrospectionControls;
+          if (tmpView && typeof tmpView._introspectAll === 'function') {
+            tmpView._introspectAll();
+          }
+        }
+        selectIntrospectionConnection(pID) {
+          let tmpView = this.pict.views.IntrospectionControls;
+          if (tmpView && typeof tmpView._selectConnection === 'function') {
+            tmpView._selectConnection(pID);
+          }
+        }
+        viewTable(pConnID, pTable) {
+          let tmpView = this.pict.views.IntrospectionTables;
+          if (tmpView && typeof tmpView._viewTableDetails === 'function') {
+            tmpView._viewTableDetails(parseInt(pConnID, 10), pTable);
+          }
+        }
+
+        // ── Endpoints ───────────────────────────────────────────────────────────
+        refreshEndpoints() {
+          return this.pict.providers.DataBeaconProvider.loadEndpoints();
+        }
+        enableEndpoint(pConnID, pTable) {
+          return this.pict.providers.DataBeaconProvider.enableEndpoint(parseInt(pConnID, 10), pTable);
+        }
+        disableEndpoint(pConnID, pTable) {
+          return this.pict.providers.DataBeaconProvider.disableEndpoint(parseInt(pConnID, 10), pTable);
+        }
+        browseEndpoint(pTableName) {
+          this.pict.AppData.SelectedTableName = pTableName;
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
+          }
+          // Always restart paging from row 0 when jumping from Endpoints.
+          this.pict.AppData.RecordBrowser.CursorStart = 0;
+          let tmpPageSize = this.pict.AppData.RecordBrowser.PageSize || 50;
+          this.setActiveView('Records');
+          let tmpProv = this.pict.providers.DataBeaconProvider;
+          if (tmpProv && typeof tmpProv.loadRecords === 'function') {
+            tmpProv.loadRecords(pTableName, 0, tmpPageSize);
+          }
+        }
+
+        // ── Records ─────────────────────────────────────────────────────────────
+        recordsPrev() {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._pagePrev === 'function') {
+            tmpView._pagePrev();
+          }
+        }
+        recordsNext() {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._pageNext === 'function') {
+            tmpView._pageNext();
+          }
+        }
+        recordsLoad() {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._loadCurrent === 'function') {
+            tmpView._loadCurrent();
+          }
+        }
+        recordsExport(pFormat) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._exportRecords === 'function') {
+            tmpView._exportRecords(pFormat);
+          }
+        }
+        selectRecordsTable(pTableName) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._selectTable === 'function') {
+            tmpView._selectTable(pTableName);
+          }
+        }
+        changeRecordsPageSize(pSize) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._setPageSize === 'function') {
+            tmpView._setPageSize(pSize);
+          }
+        }
+        changeRecordsStart(pStart) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._setStart === 'function') {
+            tmpView._setStart(pStart);
+          }
+        }
+
+        // ── Queries ─────────────────────────────────────────────────────────────
+        executeQuery() {
+          let tmpView = this.pict.views.QueryPanel;
+          if (tmpView && typeof tmpView._executeQuery === 'function') {
+            tmpView._executeQuery();
+          }
+        }
+        saveQueryFromPanel() {
+          let tmpView = this.pict.views.QueryPanel;
+          if (tmpView && typeof tmpView._saveQuery === 'function') {
+            tmpView._saveQuery();
+          }
+        }
+        queryExport(pFormat) {
+          let tmpView = this.pict.views.QueryPanel;
+          if (tmpView && typeof tmpView._exportQueryResult === 'function') {
+            tmpView._exportQueryResult(pFormat);
+          }
+        }
+
+        // ── Saved queries ───────────────────────────────────────────────────────
+        toggleSavedPanel() {
+          let tmpView = this.pict.views.SavedQueriesList;
+          if (tmpView && typeof tmpView._togglePanel === 'function') {
+            tmpView._togglePanel();
+          }
+        }
+        loadSavedQuery(pGUID) {
+          let tmpView = this.pict.views.SavedQueriesList;
+          if (tmpView && typeof tmpView._loadRecord === 'function') {
+            tmpView._loadRecord(pGUID);
+          }
+        }
+        editSavedQuery(pGUID) {
+          let tmpView = this.pict.views.SavedQueriesList;
+          if (tmpView && typeof tmpView._editQuery === 'function') {
+            tmpView._editQuery(pGUID);
+          }
+        }
+        deleteSavedQuery(pGUID) {
+          let tmpView = this.pict.views.SavedQueriesList;
+          if (tmpView && typeof tmpView._deleteQuery === 'function') {
+            tmpView._deleteQuery(pGUID);
+          }
+        }
+
+        // ── Theme ───────────────────────────────────────────────────────────────
+        cycleThemeMode() {
+          let tmpProv = this.pict.providers['DataBeacon-Theme'];
+          if (tmpProv && typeof tmpProv.cycleMode === 'function') {
+            tmpProv.cycleMode();
+          }
+        }
+        openThemePicker() {
+          let tmpView = this.pict.views.ThemeSwitcher;
+          if (tmpView && typeof tmpView._openPicker === 'function') {
+            tmpView._openPicker();
+          }
+        }
+        applyTheme(pKey) {
+          let tmpView = this.pict.views.ThemeSwitcher;
+          if (tmpView && typeof tmpView._applyThemeFromTile === 'function') {
+            tmpView._applyThemeFromTile(pKey);
+          }
+        }
+
+        // ── Helpers ─────────────────────────────────────────────────────────────
+        _form(pViewName) {
+          return this.pict.views[pViewName] || {
+            _submit: () => {}
+          };
         }
       }
       module.exports = DataBeaconApplication;
@@ -6624,22 +6861,24 @@
       "./providers/Pict-Provider-DataBeacon-SavedQueries.js": 26,
       "./providers/Pict-Provider-DataBeacon-Theme.js": 28,
       "./providers/Pict-Provider-DataBeacon.js": 29,
-      "./views/PictView-DataBeacon-ConnectionForm.js": 30,
-      "./views/PictView-DataBeacon-ConnectionList.js": 31,
-      "./views/PictView-DataBeacon-Connections.js": 32,
-      "./views/PictView-DataBeacon-Dashboard.js": 33,
-      "./views/PictView-DataBeacon-Endpoints.js": 34,
-      "./views/PictView-DataBeacon-Introspection.js": 35,
-      "./views/PictView-DataBeacon-IntrospectionControls.js": 36,
-      "./views/PictView-DataBeacon-IntrospectionTables.js": 37,
-      "./views/PictView-DataBeacon-Layout.js": 38,
-      "./views/PictView-DataBeacon-QueryPanel.js": 39,
-      "./views/PictView-DataBeacon-RecordBrowser.js": 40,
-      "./views/PictView-DataBeacon-Records.js": 41,
-      "./views/PictView-DataBeacon-SQL.js": 42,
-      "./views/PictView-DataBeacon-SavedQueriesList.js": 43,
-      "./views/PictView-DataBeacon-ThemeSwitcher.js": 44,
+      "./providers/PictRouter-DataBeacon-Configuration.json": 30,
+      "./views/PictView-DataBeacon-ConnectionForm.js": 31,
+      "./views/PictView-DataBeacon-ConnectionList.js": 32,
+      "./views/PictView-DataBeacon-Connections.js": 33,
+      "./views/PictView-DataBeacon-Dashboard.js": 34,
+      "./views/PictView-DataBeacon-Endpoints.js": 35,
+      "./views/PictView-DataBeacon-Introspection.js": 36,
+      "./views/PictView-DataBeacon-IntrospectionControls.js": 37,
+      "./views/PictView-DataBeacon-IntrospectionTables.js": 38,
+      "./views/PictView-DataBeacon-Layout.js": 39,
+      "./views/PictView-DataBeacon-QueryPanel.js": 40,
+      "./views/PictView-DataBeacon-RecordBrowser.js": 41,
+      "./views/PictView-DataBeacon-Records.js": 42,
+      "./views/PictView-DataBeacon-SQL.js": 43,
+      "./views/PictView-DataBeacon-SavedQueriesList.js": 44,
+      "./views/PictView-DataBeacon-ThemeSwitcher.js": 45,
       "pict-application": 5,
+      "pict-router": 8,
       "pict-section-code": 11,
       "pict-section-modal": 19
     }],
@@ -6693,21 +6932,21 @@
       "./providers/Pict-Provider-DataBeacon-SavedQueries.js": 26,
       "./providers/Pict-Provider-DataBeacon-Theme.js": 28,
       "./providers/Pict-Provider-DataBeacon.js": 29,
-      "./views/PictView-DataBeacon-ConnectionForm.js": 30,
-      "./views/PictView-DataBeacon-ConnectionList.js": 31,
-      "./views/PictView-DataBeacon-Connections.js": 32,
-      "./views/PictView-DataBeacon-Dashboard.js": 33,
-      "./views/PictView-DataBeacon-Endpoints.js": 34,
-      "./views/PictView-DataBeacon-Introspection.js": 35,
-      "./views/PictView-DataBeacon-IntrospectionControls.js": 36,
-      "./views/PictView-DataBeacon-IntrospectionTables.js": 37,
-      "./views/PictView-DataBeacon-Layout.js": 38,
-      "./views/PictView-DataBeacon-QueryPanel.js": 39,
-      "./views/PictView-DataBeacon-RecordBrowser.js": 40,
-      "./views/PictView-DataBeacon-Records.js": 41,
-      "./views/PictView-DataBeacon-SQL.js": 42,
-      "./views/PictView-DataBeacon-SavedQueriesList.js": 43,
-      "./views/PictView-DataBeacon-ThemeSwitcher.js": 44,
+      "./views/PictView-DataBeacon-ConnectionForm.js": 31,
+      "./views/PictView-DataBeacon-ConnectionList.js": 32,
+      "./views/PictView-DataBeacon-Connections.js": 33,
+      "./views/PictView-DataBeacon-Dashboard.js": 34,
+      "./views/PictView-DataBeacon-Endpoints.js": 35,
+      "./views/PictView-DataBeacon-Introspection.js": 36,
+      "./views/PictView-DataBeacon-IntrospectionControls.js": 37,
+      "./views/PictView-DataBeacon-IntrospectionTables.js": 38,
+      "./views/PictView-DataBeacon-Layout.js": 39,
+      "./views/PictView-DataBeacon-QueryPanel.js": 40,
+      "./views/PictView-DataBeacon-RecordBrowser.js": 41,
+      "./views/PictView-DataBeacon-Records.js": 42,
+      "./views/PictView-DataBeacon-SQL.js": 43,
+      "./views/PictView-DataBeacon-SavedQueriesList.js": 44,
+      "./views/PictView-DataBeacon-ThemeSwitcher.js": 45,
       "pict-application": 5,
       "pict-router": 8,
       "pict-section-code": 11,
@@ -6908,6 +7147,11 @@
             return false;
           }
           try {
+            // Standard browser-download pattern: synthesize a hidden <a> with
+            // an object URL and programmatically click it, then remove.  No
+            // ContentAssignment analog for transient off-DOM anchor tricks,
+            // so this is one of the pict "unless absolutely necessary"
+            // carve-outs (downloads, popovers, tooltips).
             let tmpBlob = new Blob([pContent], {
               type: `${pMime};charset=utf-8`
             });
@@ -8007,7 +8251,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
           this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
           this.pict.AppData.RecordBrowser.PageSize = tmpCap;
-          this._apiCall('GET', `/1.0/${pTableName}s/${tmpStart}/${tmpCap}`, null, (pError, pData) => {
+
+          // Dynamic endpoints are namespaced under the connection's sanitized
+          // name (see DataBeacon-DynamicEndpointManager.js), e.g.
+          // /1.0/lab-mysql-seed-books/Books/0/50 rather than /1.0/Books/0/50.
+          // Without the prefix we'd hit a 404 even though SQL reads still work.
+          let tmpPrefix = this._routeHashForSelectedConnection();
+          let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+          this._apiCall('GET', `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`, null, (pError, pData) => {
             if (!pError && pData) {
               this.pict.AppData.Records = Array.isArray(pData) ? pData : pData.Records || [];
               this.pict.AppData.SelectedTableName = pTableName;
@@ -8016,6 +8267,27 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
             if (fCallback) fCallback(pError, pData);
           });
+        }
+
+        /**
+         * Client-side equivalent of meadow-connection-manager's
+         * sanitizeConnectionName -- lowercases and replaces non-URL-safe chars
+         * (notably underscores) with hyphens.  Must stay in sync with the
+         * server's sanitizer so route-hash matching works end-to-end.  Returns
+         * '' when no connection is selected so callers can fall back to the
+         * unprefixed /1.0/<Table> path.
+         */
+        _routeHashForSelectedConnection() {
+          let tmpCID = this.pict.AppData.SelectedConnectionID;
+          if (!tmpCID) {
+            return '';
+          }
+          let tmpConns = this.pict.AppData.Connections || [];
+          let tmpConn = tmpConns.find(pC => pC.IDBeaconConnection === tmpCID);
+          if (!tmpConn || !tmpConn.Name) {
+            return '';
+          }
+          return String(tmpConn.Name).toLowerCase().replace(/[^a-z0-9-]+/g, '-');
         }
         _toNonNegativeInt(pValue, pDefault) {
           let tmpN = parseInt(pValue, 10);
@@ -8132,13 +8404,19 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             };
           }
           let tmpShowPlaceholder = tmpConnectedList.length !== 1 || !tmpCID;
+          let tmpRunDisabled = !tmpCID;
+          let tmpAllDisabled = tmpConnectedList.length === 0;
           this.pict.AppData.Introspection = {
             ConnectedList: tmpListForTemplate,
             ShowPlaceholder: tmpShowPlaceholder,
             HasSelection: !!tmpSelectedConn,
             SelectedBanner: tmpBanner,
-            RunDisabled: !tmpCID,
-            AllDisabled: tmpConnectedList.length === 0,
+            RunDisabled: tmpRunDisabled,
+            AllDisabled: tmpAllDisabled,
+            // Template-friendly class names; anchor elements don't honor
+            // `disabled` so we swap visual state via CSS classes.
+            RunDisabledClass: tmpRunDisabled ? 'disabled' : '',
+            AllDisabledClass: tmpAllDisabled ? 'disabled' : '',
             State: tmpState,
             TablesView: tmpTablesView,
             TablesHeader: tmpTablesHeader,
@@ -8195,6 +8473,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           let tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize;
           let tmpRangeLabel;
           if (!tmpSelectedTable) tmpRangeLabel = '';else if (tmpFetched === 0) tmpRangeLabel = `No records at start ${tmpCursorStart}.`;else tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpCursorStart + tmpFetched} · Page size ${tmpPageSize}`;
+          let tmpLoadDisabled = !tmpSelectedTable;
           this.pict.AppData.RecordBrowser = {
             TableOptions: tmpTableOptions,
             PageSizeOptions: tmpPageSizeOptions,
@@ -8204,7 +8483,13 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             PageSize: tmpPageSize,
             PrevDisabled: tmpPrevDisabled,
             NextDisabled: tmpNextDisabled,
-            LoadDisabled: !tmpSelectedTable,
+            LoadDisabled: tmpLoadDisabled,
+            // Anchor-friendly class mirrors (pict imperative-first replaces
+            // delegated click handlers with `<a href="#/..."/>`; buttons-as-
+            // anchors don't honor the native `disabled` attribute).
+            PrevDisabledClass: tmpPrevDisabled ? 'disabled' : '',
+            NextDisabledClass: tmpNextDisabled ? 'disabled' : '',
+            LoadDisabledClass: tmpLoadDisabled ? 'disabled' : '',
             RangeLabel: tmpRangeLabel,
             State: tmpState,
             ColumnList: tmpColumnList,
@@ -8400,6 +8685,113 @@ body[data-theme="sgi"][data-mode-effective="dark"]
       "pict-view": 21
     }],
     30: [function (require, module, exports) {
+      module.exports = {
+        "ProviderIdentifier": "PictRouter",
+        "AutoInitialize": true,
+        "AutoInitializeOrdinal": 0,
+        "Routes": [{
+          "path": "/view/dashboard",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`Dashboard`)~}"
+        }, {
+          "path": "/view/connections",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`Connections`)~}"
+        }, {
+          "path": "/view/introspection",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`Introspection`)~}"
+        }, {
+          "path": "/view/endpoints",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`Endpoints`)~}"
+        }, {
+          "path": "/view/records",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`Records`)~}"
+        }, {
+          "path": "/view/sql",
+          "template": "{~LV:Pict.PictApplication.setActiveView(`SQL`)~}"
+        }, {
+          "path": "/connections/create",
+          "template": "{~LV:Pict.PictApplication.createConnection()~}"
+        }, {
+          "path": "/connections/:id/connect",
+          "template": "{~LV:Pict.PictApplication.connectConnection(Record.data.id)~}"
+        }, {
+          "path": "/connections/:id/disconnect",
+          "template": "{~LV:Pict.PictApplication.disconnectConnection(Record.data.id)~}"
+        }, {
+          "path": "/connections/:id/test",
+          "template": "{~LV:Pict.PictApplication.testConnection(Record.data.id)~}"
+        }, {
+          "path": "/connections/:id/delete",
+          "template": "{~LV:Pict.PictApplication.deleteConnection(Record.data.id)~}"
+        }, {
+          "path": "/connections/:id/introspect",
+          "template": "{~LV:Pict.PictApplication.introspectConnection(Record.data.id)~}"
+        }, {
+          "path": "/introspection/run",
+          "template": "{~LV:Pict.PictApplication.runIntrospect()~}"
+        }, {
+          "path": "/introspection/all",
+          "template": "{~LV:Pict.PictApplication.introspectAll()~}"
+        }, {
+          "path": "/introspection/table/:connId/:table",
+          "template": "{~LV:Pict.PictApplication.viewTable(Record.data.connId, Record.data.table)~}"
+        }, {
+          "path": "/endpoints/refresh",
+          "template": "{~LV:Pict.PictApplication.refreshEndpoints()~}"
+        }, {
+          "path": "/endpoints/:connId/:table/enable",
+          "template": "{~LV:Pict.PictApplication.enableEndpoint(Record.data.connId, Record.data.table)~}"
+        }, {
+          "path": "/endpoints/:connId/:table/disable",
+          "template": "{~LV:Pict.PictApplication.disableEndpoint(Record.data.connId, Record.data.table)~}"
+        }, {
+          "path": "/endpoints/:tableName/browse",
+          "template": "{~LV:Pict.PictApplication.browseEndpoint(Record.data.tableName)~}"
+        }, {
+          "path": "/records/prev",
+          "template": "{~LV:Pict.PictApplication.recordsPrev()~}"
+        }, {
+          "path": "/records/next",
+          "template": "{~LV:Pict.PictApplication.recordsNext()~}"
+        }, {
+          "path": "/records/load",
+          "template": "{~LV:Pict.PictApplication.recordsLoad()~}"
+        }, {
+          "path": "/records/export/:format",
+          "template": "{~LV:Pict.PictApplication.recordsExport(Record.data.format)~}"
+        }, {
+          "path": "/queries/execute",
+          "template": "{~LV:Pict.PictApplication.executeQuery()~}"
+        }, {
+          "path": "/queries/save",
+          "template": "{~LV:Pict.PictApplication.saveQueryFromPanel()~}"
+        }, {
+          "path": "/queries/export/:format",
+          "template": "{~LV:Pict.PictApplication.queryExport(Record.data.format)~}"
+        }, {
+          "path": "/saved-queries/toggle",
+          "template": "{~LV:Pict.PictApplication.toggleSavedPanel()~}"
+        }, {
+          "path": "/saved-queries/:guid/load",
+          "template": "{~LV:Pict.PictApplication.loadSavedQuery(Record.data.guid)~}"
+        }, {
+          "path": "/saved-queries/:guid/edit",
+          "template": "{~LV:Pict.PictApplication.editSavedQuery(Record.data.guid)~}"
+        }, {
+          "path": "/saved-queries/:guid/delete",
+          "template": "{~LV:Pict.PictApplication.deleteSavedQuery(Record.data.guid)~}"
+        }, {
+          "path": "/theme/cycle-mode",
+          "template": "{~LV:Pict.PictApplication.cycleThemeMode()~}"
+        }, {
+          "path": "/theme/picker/open",
+          "template": "{~LV:Pict.PictApplication.openThemePicker()~}"
+        }, {
+          "path": "/theme/:key/apply",
+          "template": "{~LV:Pict.PictApplication.applyTheme(Record.data.key)~}"
+        }]
+      };
+    }, {}],
+    31: [function (require, module, exports) {
       /**
        * DataBeacon ConnectionForm View
        *
@@ -8433,10 +8825,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		<div class="form-group checkbox-group"><label><input type="checkbox" id="databeacon-connform-autoconnect" /> Auto-connect on startup</label></div>
 	</div>
 	<div class="button-row">
-		<button class="btn btn-primary" data-databeacon-action="create-connection">
+		<a class="btn btn-primary" href="#/connections/create">
 			<span data-databeacon-icon="plus" data-icon-size="16"></span>
 			Add Connection
-		</button>
+		</a>
 	</div>
 </div>`
         }, {
@@ -8457,18 +8849,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ConnectionForm-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-ConnectionForm-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
-        _handleAction(pAction) {
-          if (pAction === 'create-connection') this._createConnection();
+
+        // Router-handler entry point.  Application.createConnection() calls this
+        // via the `#/connections/create` route; values are read from the DOM at
+        // submit time so the form can re-render without clobbering pending input.
+        _submit() {
+          this._createConnection();
         }
         _readValue(pSelector) {
           let tmpList = this.pict.ContentAssignment.getElement(pSelector);
@@ -8514,7 +8902,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    31: [function (require, module, exports) {
+    32: [function (require, module, exports) {
       /**
        * DataBeacon ConnectionList View
        *
@@ -8557,29 +8945,29 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<td class="actions-cell">
 		{~TIf:DataBeacon-ConnectionList-Row-ConnectedActions::Record.Connected^TRUE^x~}
 		{~TIf:DataBeacon-ConnectionList-Row-DisconnectedActions::Record.Connected^FALSE^x~}
-		<button class="btn btn-small btn-danger" data-databeacon-action="delete" data-connection-id="{~D:Record.IDBeaconConnection~}">
+		<a class="btn btn-small btn-danger" href="#/connections/{~D:Record.IDBeaconConnection~}/delete">
 			<span data-databeacon-icon="trash" data-icon-size="14"></span> Delete
-		</button>
+		</a>
 	</td>
 </tr>`
         }, {
           Hash: 'DataBeacon-ConnectionList-Row-ConnectedActions',
           Template: /*html*/`
-<button class="btn btn-small btn-secondary" data-databeacon-action="introspect" data-connection-id="{~D:Record.IDBeaconConnection~}">
+<a class="btn btn-small btn-secondary" href="#/connections/{~D:Record.IDBeaconConnection~}/introspect">
 	<span data-databeacon-icon="introspection" data-icon-size="14"></span> Introspect
-</button>
-<button class="btn btn-small btn-warning" data-databeacon-action="disconnect" data-connection-id="{~D:Record.IDBeaconConnection~}">
+</a>
+<a class="btn btn-small btn-warning" href="#/connections/{~D:Record.IDBeaconConnection~}/disconnect">
 	<span data-databeacon-icon="disconnect" data-icon-size="14"></span> Disconnect
-</button>`
+</a>`
         }, {
           Hash: 'DataBeacon-ConnectionList-Row-DisconnectedActions',
           Template: /*html*/`
-<button class="btn btn-small btn-primary" data-databeacon-action="connect" data-connection-id="{~D:Record.IDBeaconConnection~}">
+<a class="btn btn-small btn-primary" href="#/connections/{~D:Record.IDBeaconConnection~}/connect">
 	<span data-databeacon-icon="connect" data-icon-size="14"></span> Connect
-</button>
-<button class="btn btn-small btn-secondary" data-databeacon-action="test" data-connection-id="{~D:Record.IDBeaconConnection~}">
+</a>
+<a class="btn btn-small btn-secondary" href="#/connections/{~D:Record.IDBeaconConnection~}/test">
 	<span data-databeacon-icon="test" data-icon-size="14"></span> Test
-</button>`
+</a>`
         }],
         Renderables: [{
           RenderableHash: 'DataBeacon-ConnectionList',
@@ -8595,64 +8983,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ConnectionList-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-ConnectionList-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-        }
-        _handleAction(pAction, pData) {
-          let tmpID = parseInt(pData.connectionId, 10);
-          if (isNaN(tmpID)) return;
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
-          let tmpModal = this.pict.views.PictSectionModal;
-          switch (pAction) {
-            case 'test':
-              tmpProvider.testConnection(tmpID, (pError, pData) => {
-                if (pData && pData.Success) {
-                  tmpModal.toast('Connection test succeeded.', {
-                    type: 'success'
-                  });
-                } else {
-                  tmpModal.toast('Connection test failed: ' + (pData ? pData.Error : 'Unknown error'), {
-                    type: 'error'
-                  });
-                }
-              });
-              break;
-            case 'connect':
-              tmpProvider.connectConnection(tmpID);
-              break;
-            case 'disconnect':
-              tmpProvider.disconnectConnection(tmpID);
-              break;
-            case 'delete':
-              tmpModal.confirm('Are you sure you want to delete this connection?', {
-                title: 'Delete Connection',
-                confirmLabel: 'Delete',
-                cancelLabel: 'Cancel',
-                dangerous: true
-              }).then(pConfirmed => {
-                if (pConfirmed) tmpProvider.deleteConnection(tmpID);
-              });
-              break;
-            case 'introspect':
-              tmpProvider.introspect(tmpID, (pError, pData) => {
-                if (pData && pData.Success) {
-                  this.pict.AppData.SelectedConnectionID = tmpID;
-                  if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Introspection');
-                } else {
-                  tmpModal.toast('Introspection failed: ' + (pData ? pData.Error : 'Unknown error'), {
-                    type: 'error'
-                  });
-                }
-              });
-              break;
-          }
         }
       }
       module.exports = PictViewDataBeaconConnectionList;
@@ -8660,7 +8991,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    32: [function (require, module, exports) {
+    33: [function (require, module, exports) {
       /**
        * DataBeacon Connections Page (container view)
        *
@@ -8706,7 +9037,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    33: [function (require, module, exports) {
+    34: [function (require, module, exports) {
       /**
        * DataBeacon Dashboard View
        *
@@ -8748,14 +9079,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<div class="section">
 		<h2>Quick Actions</h2>
 		<div class="button-row">
-			<button class="btn btn-primary" data-databeacon-action="navigate" data-view="Connections">
+			<a class="btn btn-primary" href="#/view/connections">
 				<span data-databeacon-icon="connections" data-icon-size="16"></span>
 				Manage Connections
-			</button>
-			<button class="btn btn-secondary" data-databeacon-action="navigate" data-view="Endpoints">
+			</a>
+			<a class="btn btn-secondary" href="#/view/endpoints">
 				<span data-databeacon-icon="endpoints" data-icon-size="16"></span>
 				View Endpoints
-			</button>
+			</a>
 		</div>
 	</div>
 
@@ -8794,21 +9125,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-View-Dashboard');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-Dashboard-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            // A fresh DOM node is produced on every render, so we always attach.
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-        }
-        _handleAction(pAction, pData) {
-          if (pAction === 'navigate' && pData.view && this.pict.views.Layout) {
-            this.pict.views.Layout.setActiveView(pData.view);
-          }
         }
       }
       module.exports = PictViewDataBeaconDashboard;
@@ -8816,7 +9133,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    34: [function (require, module, exports) {
+    35: [function (require, module, exports) {
       /**
        * DataBeacon Endpoints View
        *
@@ -8837,10 +9154,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<h1>Active REST Endpoints</h1>
 	<div class="section">
 		<div class="button-row">
-			<button class="btn btn-secondary" data-databeacon-action="refresh">
+			<a class="btn btn-secondary" href="#/endpoints/refresh">
 				<span data-databeacon-icon="refresh" data-icon-size="16"></span>
 				Refresh
-			</button>
+			</a>
 		</div>
 	</div>
 	{~TemplateIfAbsolute:DataBeacon-Endpoints-Empty:AppData.Endpoints:AppData.Endpoints.length^==^0~}
@@ -8870,12 +9187,12 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<td>{~D:Record.ConnectionType~}</td>
 	<td><code>{~D:Record.EndpointBase~}</code></td>
 	<td class="actions-cell">
-		<button class="btn btn-small btn-primary" data-databeacon-action="browse" data-table-name="{~D:Record.TableName~}">
+		<a class="btn btn-small btn-primary" href="#/endpoints/{~D:Record.TableName~}/browse">
 			<span data-databeacon-icon="eye" data-icon-size="14"></span> Browse
-		</button>
-		<button class="btn btn-small btn-secondary" data-databeacon-action="open-api" data-api-url="{~D:Record.EndpointAPIURL~}">
+		</a>
+		<a class="btn btn-small btn-secondary" href="{~D:Record.EndpointAPIURL~}" target="_blank" rel="noopener">
 			<span data-databeacon-icon="external-link" data-icon-size="14"></span> API
-		</button>
+		</a>
 	</td>
 </tr>`
         }],
@@ -8893,37 +9210,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-Endpoints-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-Endpoints-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-        }
-        _handleAction(pAction, pData) {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
-          switch (pAction) {
-            case 'refresh':
-              tmpProvider.loadEndpoints();
-              break;
-            case 'browse':
-              if (pData.tableName) {
-                this.pict.AppData.SelectedTableName = pData.tableName;
-                // Always restart paging from row 0 when jumping from Endpoints.
-                if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
-                this.pict.AppData.RecordBrowser.CursorStart = 0;
-                let tmpPageSize = this.pict.AppData.RecordBrowser.PageSize || 50;
-                tmpProvider.loadRecords(pData.tableName, 0, tmpPageSize);
-                if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Records');
-              }
-              break;
-            case 'open-api':
-              if (pData.apiUrl) window.open(pData.apiUrl, '_blank');
-              break;
-          }
         }
       }
       module.exports = PictViewDataBeaconEndpoints;
@@ -8931,7 +9218,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    35: [function (require, module, exports) {
+    36: [function (require, module, exports) {
       /**
        * DataBeacon Introspection Page (container view)
        *
@@ -8985,7 +9272,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    36: [function (require, module, exports) {
+    37: [function (require, module, exports) {
       /**
        * DataBeacon IntrospectionControls View
        *
@@ -9007,22 +9294,22 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<div class="form-row">
 		<div class="form-group">
 			<label>Connection</label>
-			<select id="databeacon-introspect-connection" data-databeacon-action="select-connection">
+			<select id="databeacon-introspect-connection" onchange="{~P~}.PictApplication.selectIntrospectionConnection(this.value)">
 				{~TemplateIfAbsolute:DataBeacon-IntrospectionControls-PlaceholderOption:AppData.Introspection:AppData.Introspection.ShowPlaceholder^TRUE^x~}
 				{~TS:DataBeacon-IntrospectionControls-ConnectionOption:AppData.Introspection.ConnectedList~}
 			</select>
 		</div>
 		<div class="form-group">
-			<button class="btn btn-primary" data-databeacon-action="run-introspect" data-databeacon-disabled="{~D:AppData.Introspection.RunDisabled~}">
+			<a class="btn btn-primary {~D:AppData.Introspection.RunDisabledClass~}" href="#/introspection/run">
 				<span data-databeacon-icon="introspection" data-icon-size="16"></span>
 				Introspect
-			</button>
+			</a>
 		</div>
 		<div class="form-group">
-			<button class="btn btn-secondary" data-databeacon-action="introspect-all" data-databeacon-disabled="{~D:AppData.Introspection.AllDisabled~}">
+			<a class="btn btn-secondary {~D:AppData.Introspection.AllDisabledClass~}" href="#/introspection/all">
 				<span data-databeacon-icon="refresh" data-icon-size="16"></span>
 				Introspect All
-			</button>
+			</a>
 		</div>
 	</div>
 	{~TemplateIfAbsolute:DataBeacon-IntrospectionControls-Banner:AppData.Introspection.SelectedBanner:AppData.Introspection.HasSelection^TRUE^x~}
@@ -9060,44 +9347,18 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-IntrospectionControls-Root');
-          this._applyDisabledAttributes();
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-IntrospectionControls-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            let tmpRoot = tmpRootList[0];
-            tmpRoot.addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn || tmpBtn.tagName !== 'BUTTON') return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-            tmpRoot.addEventListener('change', pEvent => {
-              let tmpSelect = pEvent.target.closest('[data-databeacon-action="select-connection"]');
-              if (!tmpSelect) return;
-              this._handleSelection(tmpSelect.value);
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
-        _applyDisabledAttributes() {
-          let tmpIntrospection = this.pict.AppData.Introspection || {};
-          let tmpRunList = this.pict.ContentAssignment.getElement('[data-databeacon-action="run-introspect"]');
-          if (tmpRunList && tmpRunList.length > 0) {
-            tmpRunList[0].disabled = !!tmpIntrospection.RunDisabled;
-          }
-          let tmpAllList = this.pict.ContentAssignment.getElement('[data-databeacon-action="introspect-all"]');
-          if (tmpAllList && tmpAllList.length > 0) {
-            tmpAllList[0].disabled = !!tmpIntrospection.AllDisabled;
-          }
-        }
-        _handleAction(pAction) {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
+
+        // ── Router-handler entry points (called by Application) ────────────────
+
+        _runIntrospect() {
           let tmpSelectedID = this.pict.AppData.SelectedConnectionID;
-          if (pAction === 'run-introspect') {
-            if (tmpSelectedID) tmpProvider.introspect(tmpSelectedID);
-          } else if (pAction === 'introspect-all') {
-            this._introspectAll();
+          if (tmpSelectedID) {
+            this.pict.providers.DataBeaconProvider.introspect(tmpSelectedID);
           }
         }
-        _handleSelection(pRawValue) {
+        _selectConnection(pRawValue) {
           let tmpID = parseInt(pRawValue, 10);
           if (isNaN(tmpID)) tmpID = null;
           this.pict.AppData.SelectedConnectionID = tmpID;
@@ -9111,6 +9372,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             if (this.pict.views.IntrospectionTables) this.pict.views.IntrospectionTables.render();
           }
         }
+
+        // Public entry called from Application.introspectAll() via the
+        // #/introspection/all route.  Iterates all connected connections and
+        // introspects each in sequence.
         _introspectAll() {
           let tmpConns = this.pict.AppData.Connections || [];
           let tmpProvider = this.pict.providers.DataBeaconProvider;
@@ -9139,7 +9404,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    37: [function (require, module, exports) {
+    38: [function (require, module, exports) {
       /**
        * DataBeacon IntrospectionTables View
        *
@@ -9172,7 +9437,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Template: /*html*/`
 <p class="empty-state">
 	No databases connected. Go to
-	<a href="javascript:void(0)" data-databeacon-action="goto-connections">Connections</a>
+	<a href="#/view/connections">Connections</a>
 	to add and connect a database first.
 </p>`
         }, {
@@ -9196,7 +9461,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Hash: 'DataBeacon-IntrospectionTables-Row',
           Template: /*html*/`
 <tr>
-	<td><a href="javascript:void(0)" data-databeacon-action="view-table" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">{~D:Record.TableName~}</a></td>
+	<td><a href="#/introspection/table/{~D:Record.ConnectionID~}/{~D:Record.TableName~}">{~D:Record.TableName~}</a></td>
 	<td>{~D:Record.ColumnCount~}</td>
 	<td>{~D:Record.RowCountDisplay~}</td>
 	<td>{~TIf:DataBeacon-IntrospectionTables-Row-EndpointBadge::Record.EndpointsEnabled^TRUE^x~}</td>
@@ -9211,15 +9476,15 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         }, {
           Hash: 'DataBeacon-IntrospectionTables-Row-Enable',
           Template: /*html*/`
-<button class="btn btn-small btn-primary" data-databeacon-action="enable-endpoint" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">
+<a class="btn btn-small btn-primary" href="#/endpoints/{~D:Record.ConnectionID~}/{~D:Record.TableName~}/enable">
 	<span data-databeacon-icon="check" data-icon-size="14"></span> Enable
-</button>`
+</a>`
         }, {
           Hash: 'DataBeacon-IntrospectionTables-Row-Disable',
           Template: /*html*/`
-<button class="btn btn-small btn-warning" data-databeacon-action="disable-endpoint" data-connection-id="{~D:Record.ConnectionID~}" data-table-name="{~D:Record.TableName~}">
+<a class="btn btn-small btn-warning" href="#/endpoints/{~D:Record.ConnectionID~}/{~D:Record.TableName~}/disable">
 	<span data-databeacon-icon="x" data-icon-size="14"></span> Disable
-</button>`
+</a>`
         }, {
           Hash: 'DataBeacon-IntrospectionTables-DetailModal',
           Template: /*html*/`
@@ -9262,35 +9527,15 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-IntrospectionTables-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-IntrospectionTables-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpEl = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpEl) return;
-              pEvent.preventDefault();
-              this._handleAction(tmpEl.getAttribute('data-databeacon-action'), tmpEl.dataset);
-            });
-          }
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
-        _handleAction(pAction, pData) {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
-          let tmpCID = parseInt(pData.connectionId, 10);
-          let tmpTable = pData.tableName;
-          switch (pAction) {
-            case 'goto-connections':
-              if (this.pict.views.Layout) this.pict.views.Layout.setActiveView('Connections');
-              break;
-            case 'enable-endpoint':
-              if (!isNaN(tmpCID) && tmpTable) tmpProvider.enableEndpoint(tmpCID, tmpTable);
-              break;
-            case 'disable-endpoint':
-              if (!isNaN(tmpCID) && tmpTable) tmpProvider.disableEndpoint(tmpCID, tmpTable);
-              break;
-            case 'view-table':
-              if (!isNaN(tmpCID) && tmpTable) this._showDetail(tmpCID, tmpTable);
-              break;
-          }
+
+        // Router-handler entry point (Application.viewTable).  Opens a modal
+        // with the table's column details.  Kept imperative to host the modal
+        // orchestration; the actual "which table?" dispatch is driven by the
+        // #/introspection/table/:connId/:table route.
+        _viewTableDetails(pConnectionID, pTableName) {
+          this._showDetail(parseInt(pConnectionID, 10), pTableName);
         }
         _showDetail(pConnectionID, pTableName) {
           let tmpProvider = this.pict.providers.DataBeaconProvider;
@@ -9355,7 +9600,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    38: [function (require, module, exports) {
+    39: [function (require, module, exports) {
       /**
        * DataBeacon Layout View
        *
@@ -9369,26 +9614,32 @@ body[data-theme="sgi"][data-mode-effective="dark"]
       const libPictView = require('pict-view');
       const _NavItems = [{
         View: 'Dashboard',
+        Slug: 'dashboard',
         Label: 'Dashboard',
         Icon: 'dashboard'
       }, {
         View: 'Connections',
+        Slug: 'connections',
         Label: 'Connections',
         Icon: 'connections'
       }, {
         View: 'Introspection',
+        Slug: 'introspection',
         Label: 'Introspection',
         Icon: 'introspection'
       }, {
         View: 'Endpoints',
+        Slug: 'endpoints',
         Label: 'Endpoints',
         Icon: 'endpoints'
       }, {
         View: 'Records',
+        Slug: 'records',
         Label: 'Records',
         Icon: 'records'
       }, {
         View: 'SQL',
+        Slug: 'sql',
         Label: 'SQL',
         Icon: 'terminal'
       }];
@@ -9435,10 +9686,10 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         }, {
           Hash: 'DataBeacon-Layout-NavItem',
           Template: /*html*/`
-<div class="nav-item" data-databeacon-action="navigate" data-view="{~D:Record.View~}" data-view-nav="{~D:Record.View~}">
+<a class="nav-item" href="#/view/{~D:Record.Slug~}" data-view-nav="{~D:Record.View~}">
 	<span class="nav-icon" data-databeacon-icon="{~D:Record.Icon~}" data-icon-size="20"></span>
 	<span class="nav-label">{~D:Record.Label~}</span>
-</div>`
+</a>`
         }],
         Renderables: [{
           RenderableHash: 'DataBeacon-Layout',
@@ -9464,19 +9715,6 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 
           // Mount the theme-switcher widget into its sidebar-header slot.
           if (this.pict.views.ThemeSwitcher) this.pict.views.ThemeSwitcher.render();
-
-          // Wire a single delegated click handler on the sidebar; the layout
-          // only renders when navigation state changes, so attaching on every
-          // render is cheap and correct (previous nav DOM is gone).
-          let tmpNavList = this.pict.ContentAssignment.getElement('#DataBeacon-Sidebar-Nav');
-          if (tmpNavList && tmpNavList.length > 0) {
-            tmpNavList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action="navigate"]');
-              if (!tmpBtn) return;
-              let tmpViewName = tmpBtn.getAttribute('data-view');
-              if (tmpViewName) this.setActiveView(tmpViewName);
-            });
-          }
 
           // Ensure every view's CSS (including pict-section-modal's) is in the DOM.
           if (this.pict.CSSMap && typeof this.pict.CSSMap.injectCSS === 'function') {
@@ -9523,7 +9761,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    39: [function (require, module, exports) {
+    40: [function (require, module, exports) {
       /**
        * DataBeacon QueryPanel View
        *
@@ -9586,14 +9824,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		<div class="help-text" id="DataBeacon-QueryPanel-EditorHint">{~D:AppData.QueryPanel.EditorHint~}</div>
 	</div>
 	<div class="button-row">
-		<button class="btn btn-primary" data-databeacon-action="execute">
+		<a class="btn btn-primary" href="#/queries/execute">
 			<span data-databeacon-icon="play" data-icon-size="16"></span>
 			Execute
-		</button>
-		<button class="btn btn-secondary" data-databeacon-action="save-query">
+		</a>
+		<a class="btn btn-secondary" href="#/queries/save">
 			<span data-databeacon-icon="save" data-icon-size="16"></span>
 			Save…
-		</button>
+		</a>
 	</div>
 	<div id="DataBeacon-QueryPanel-Results"></div>
 </div>`
@@ -9613,18 +9851,18 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Template: /*html*/`
 <div class="databeacon-export-bar">
 	<span class="databeacon-export-label">Export result:</span>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+	<a class="btn btn-small btn-secondary" href="#/queries/export/json">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/json-comp">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/csv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/tsv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
-	</button>
+	</a>
 </div>`
         }, {
           Hash: 'DataBeacon-QueryPanel-HeaderCell',
@@ -9669,14 +9907,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           // mounted CodeJar instance is orphaned against a detached div.
           // Tear it down (if present) and rebuild into the fresh target.
           this._mountEditor();
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-QueryPanel-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-          }
+          this.pict.CSSMap.injectCSS();
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
         _mountEditor() {
@@ -9747,6 +9978,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           };
           tmpEl.addEventListener('keydown', fHandler, true);
         }
+
+        // ── Caret / text-node helpers ──────────────────────────────────────────
+        // The methods below manipulate Selection / Range / TextNode directly via
+        // the browser DOM.  ContentAssignment's abstractions don't cover caret
+        // position or in-place text splicing, so these fall under the pict
+        // "DOM access unless absolutely necessary" carve-out (rich text input
+        // behavior).  Keep them scoped to CodeJar's contenteditable root only.
+
         _computeCurrentLinePadding(pEditor) {
           let tmpSel = window.getSelection();
           if (!tmpSel || tmpSel.rangeCount === 0) return '';
@@ -9800,8 +10039,18 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           tmpAfter.setStart(tmpRange.endContainer, tmpRange.endOffset);
           return tmpAfter.toString().length === 0;
         }
-        _handleAction(pAction, pData) {
-          if (pAction === 'execute') this._execute();else if (pAction === 'export') this._export(pData && pData.exportFormat);else if (pAction === 'save-query') this._openSaveModal();
+
+        // ── Router-handler entry points (called by Application) ────────────────
+        // `#/queries/execute`, `#/queries/save`, `#/queries/export/:format` each
+        // resolve to one of these methods through PictApplication.
+        _executeQuery() {
+          return this._execute();
+        }
+        _saveQuery() {
+          return this._openSaveModal();
+        }
+        _exportQueryResult(pFormat) {
+          return this._export(pFormat);
         }
         _openSaveModal() {
           let tmpList = this.pict.views.SavedQueriesList;
@@ -9978,7 +10227,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    40: [function (require, module, exports) {
+    41: [function (require, module, exports) {
       /**
        * DataBeacon RecordBrowser View
        *
@@ -10011,37 +10260,37 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<div class="databeacon-records-toolbar">
 		<div class="form-group">
 			<label>Table</label>
-			<select id="databeacon-records-table" data-databeacon-action="select-table">
+			<select id="databeacon-records-table" onchange="{~P~}.PictApplication.selectRecordsTable(this.value)">
 				<option value="">-- Select Table --</option>
 				{~TS:DataBeacon-RecordBrowser-TableOption:AppData.RecordBrowser.TableOptions~}
 			</select>
 		</div>
 		<div class="form-group">
 			<label>Page Size</label>
-			<select class="databeacon-records-pagesize-select" data-databeacon-action="select-page-size">
+			<select class="databeacon-records-pagesize-select" onchange="{~P~}.PictApplication.changeRecordsPageSize(this.value)">
 				{~TS:DataBeacon-RecordBrowser-PageSizeOption:AppData.RecordBrowser.PageSizeOptions~}
 			</select>
 		</div>
 		<div class="form-group">
 			<label>Start</label>
-			<input type="number" class="databeacon-records-start-input" min="0" step="1" value="{~D:AppData.RecordBrowser.CursorStart:0~}" data-databeacon-action="change-start" />
+			<input type="number" class="databeacon-records-start-input" min="0" step="1" value="{~D:AppData.RecordBrowser.CursorStart:0~}" onchange="{~P~}.PictApplication.changeRecordsStart(this.value)" />
 		</div>
 		<div class="form-group">
 			<label>&nbsp;</label>
 			<div class="databeacon-records-pager-buttons">
-				<button class="btn btn-small btn-secondary" data-databeacon-action="prev">
+				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.PrevDisabledClass~}" href="#/records/prev">
 					<span data-databeacon-icon="chevron-left" data-icon-size="14"></span> Prev
-				</button>
-				<button class="btn btn-small btn-secondary" data-databeacon-action="next">
+				</a>
+				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.NextDisabledClass~}" href="#/records/next">
 					Next <span data-databeacon-icon="chevron-right" data-icon-size="14"></span>
-				</button>
+				</a>
 			</div>
 		</div>
 		<div class="form-group">
 			<label>&nbsp;</label>
-			<button class="btn btn-small btn-primary" data-databeacon-action="load">
+			<a class="btn btn-small btn-primary {~D:AppData.RecordBrowser.LoadDisabledClass~}" href="#/records/load">
 				<span data-databeacon-icon="refresh" data-icon-size="14"></span> Reload
-			</button>
+			</a>
 		</div>
 	</div>
 	<div class="databeacon-records-range">{~D:AppData.RecordBrowser.RangeLabel~}</div>
@@ -10055,18 +10304,18 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Template: /*html*/`
 <div class="databeacon-export-bar">
 	<span class="databeacon-export-label">Export current page:</span>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+	<a class="btn btn-small btn-secondary" href="#/records/export/json">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/json-comp">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/csv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/tsv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
-	</button>
+	</a>
 </div>`
         }, {
           Hash: 'DataBeacon-RecordBrowser-TableOption',
@@ -10116,56 +10365,85 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-RecordBrowser-Root');
-          this._applyDisabledAttributes();
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-RecordBrowser-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            let tmpRoot = tmpRootList[0];
-            tmpRoot.addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn || tmpBtn.tagName !== 'BUTTON') return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-            tmpRoot.addEventListener('change', pEvent => {
-              let tmpEl = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpEl) return;
-              this._handleChange(tmpEl.getAttribute('data-databeacon-action'), tmpEl.value);
-            });
-          }
+          this.pict.CSSMap.injectCSS();
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
-        _applyDisabledAttributes() {
-          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
-          let tmpList = this.pict.ContentAssignment.getElement('[data-databeacon-action="load"]');
-          if (tmpList && tmpList.length > 0) tmpList[0].disabled = !!tmpBrowser.LoadDisabled;
-          let tmpPrev = this.pict.ContentAssignment.getElement('[data-databeacon-action="prev"]');
-          if (tmpPrev && tmpPrev.length > 0) tmpPrev[0].disabled = !!tmpBrowser.PrevDisabled;
-          let tmpNext = this.pict.ContentAssignment.getElement('[data-databeacon-action="next"]');
-          if (tmpNext && tmpNext.length > 0) tmpNext[0].disabled = !!tmpBrowser.NextDisabled;
-        }
-        _handleAction(pAction, pData) {
+
+        // ── Router-handler entry points (called by Application) ────────────────
+        // Each method is called from a `#/records/...` route or an inline
+        // onchange expression (select/input).  No addEventListener delegation.
+
+        _loadCurrent() {
           let tmpProvider = this.pict.providers.DataBeaconProvider;
+          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          if (!tmpTable) {
+            return;
+          }
+          let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+          let tmpSize = this._clampSize(tmpBrowser.PageSize);
+          tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize);
+        }
+        _pagePrev() {
+          let tmpProvider = this.pict.providers.DataBeaconProvider;
+          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          if (!tmpTable || tmpBrowser.PrevDisabled) {
+            return;
+          }
+          let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+          let tmpSize = this._clampSize(tmpBrowser.PageSize);
+          this.pict.AppData.RecordBrowser.CursorStart = Math.max(0, tmpStart - tmpSize);
+          tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+        }
+        _pageNext() {
+          let tmpProvider = this.pict.providers.DataBeaconProvider;
+          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          if (!tmpTable || tmpBrowser.NextDisabled) {
+            return;
+          }
+          let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+          let tmpSize = this._clampSize(tmpBrowser.PageSize);
+          this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
+          tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+        }
+        _exportRecords(pFormat) {
           let tmpBrowser = this.pict.AppData.RecordBrowser || {};
           let tmpTable = this.pict.AppData.SelectedTableName;
           let tmpStart = this._clampStart(tmpBrowser.CursorStart);
           let tmpSize = this._clampSize(tmpBrowser.PageSize);
-          switch (pAction) {
-            case 'load':
-              if (tmpTable) tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize);
-              break;
-            case 'prev':
-              if (!tmpTable || tmpBrowser.PrevDisabled) return;
-              this.pict.AppData.RecordBrowser.CursorStart = Math.max(0, tmpStart - tmpSize);
-              tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
-              break;
-            case 'next':
-              if (!tmpTable || tmpBrowser.NextDisabled) return;
-              this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
-              tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
-              break;
-            case 'export':
-              this._export(pData && pData.exportFormat, tmpTable, tmpStart, tmpSize);
-              break;
+          this._export(pFormat, tmpTable, tmpStart, tmpSize);
+        }
+        _selectTable(pTableName) {
+          this.pict.AppData.SelectedTableName = pTableName || '';
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
           }
+          this.pict.AppData.RecordBrowser.CursorStart = 0;
+          let tmpProv = this.pict.providers.DataBeaconProvider;
+          if (pTableName && tmpProv) {
+            tmpProv.loadRecords(pTableName, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
+          } else if (tmpProv && typeof tmpProv.refreshRecordBrowserViewData === 'function') {
+            tmpProv.refreshRecordBrowserViewData();
+            this.render();
+          }
+        }
+        _setPageSize(pRawValue) {
+          let tmpSize = this._clampSize(pRawValue);
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
+          }
+          this.pict.AppData.RecordBrowser.PageSize = tmpSize;
+          this._loadCurrent();
+        }
+        _setStart(pRawValue) {
+          let tmpStart = this._clampStart(pRawValue);
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
+          }
+          this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
+          this._loadCurrent();
         }
         _export(pFormat, pTable, pStart, pSize) {
           let tmpExport = this.pict.providers['DataBeacon-Export'];
@@ -10221,52 +10499,6 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           }
           return null;
         }
-        _handleChange(pAction, pRawValue) {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
-          let tmpTable = this.pict.AppData.SelectedTableName;
-          switch (pAction) {
-            case 'select-table':
-              {
-                let tmpNext = pRawValue || null;
-                this.pict.AppData.SelectedTableName = tmpNext;
-                this.pict.AppData.RecordBrowser.CursorStart = 0;
-                if (tmpNext) {
-                  tmpProvider.loadRecords(tmpNext, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
-                } else {
-                  this.pict.AppData.Records = [];
-                  tmpProvider.refreshRecordBrowserViewData();
-                  this.render();
-                }
-                break;
-              }
-            case 'select-page-size':
-              {
-                let tmpSize = this._clampSize(parseInt(pRawValue, 10));
-                this.pict.AppData.RecordBrowser.PageSize = tmpSize;
-                // Reset to start of range when page size changes — keeps behavior predictable.
-                this.pict.AppData.RecordBrowser.CursorStart = 0;
-                if (tmpTable) {
-                  tmpProvider.loadRecords(tmpTable, 0, tmpSize);
-                } else {
-                  tmpProvider.refreshRecordBrowserViewData();
-                  this.render();
-                }
-                break;
-              }
-            case 'change-start':
-              {
-                let tmpStart = this._clampStart(parseInt(pRawValue, 10));
-                this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
-                if (tmpTable) {
-                  tmpProvider.loadRecords(tmpTable, tmpStart, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
-                } else {
-                  tmpProvider.refreshRecordBrowserViewData();
-                  this.render();
-                }
-                break;
-              }
-          }
-        }
         _clampStart(pValue) {
           let tmpN = parseInt(pValue, 10);
           if (isNaN(tmpN) || tmpN < 0) return 0;
@@ -10284,7 +10516,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    41: [function (require, module, exports) {
+    42: [function (require, module, exports) {
       /**
        * DataBeacon Records Page (container view)
        *
@@ -10334,7 +10566,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    42: [function (require, module, exports) {
+    43: [function (require, module, exports) {
       /**
        * DataBeacon SQL Page (container view)
        *
@@ -10378,7 +10610,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    43: [function (require, module, exports) {
+    44: [function (require, module, exports) {
       /**
        * DataBeacon SavedQueriesList View
        *
@@ -10438,13 +10670,13 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Hash: 'DataBeacon-SavedQueriesList-Template',
           Template: /*html*/`
 <div id="DataBeacon-SavedQueries-Root" class="section databeacon-saved-panel">
-	<div class="databeacon-saved-header" data-databeacon-action="toggle-panel">
+	<a class="databeacon-saved-header" href="#/saved-queries/toggle">
 		<h2>Saved Queries ({~D:AppData.SavedQueries.Count:0~})</h2>
 		<div class="databeacon-saved-header-right">
 			<span>{~D:AppData.SavedQueries.ToggleLabel~}</span>
 			<span data-databeacon-icon="{~D:AppData.SavedQueries.ToggleIcon~}" data-icon-size="16"></span>
 		</div>
-	</div>
+	</a>
 	{~TemplateIfAbsolute:DataBeacon-SavedQueriesList-Body:AppData.SavedQueries:AppData.SavedQueries.Expanded^TRUE^x~}
 </div>`
         }, {
@@ -10478,15 +10710,15 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<td>{~D:Record.DateLastRunDisplay~}</td>
 	<td>{~D:Record.LastRowCountDisplay~}</td>
 	<td class="actions-cell">
-		<button class="btn btn-small btn-primary" data-databeacon-action="load" data-guid="{~D:Record.GUIDSavedQuery~}">
+		<a class="btn btn-small btn-primary" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/load">
 			<span data-databeacon-icon="play" data-icon-size="14"></span> Load
-		</button>
-		<button class="btn btn-small btn-secondary" data-databeacon-action="edit" data-guid="{~D:Record.GUIDSavedQuery~}">
+		</a>
+		<a class="btn btn-small btn-secondary" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/edit">
 			<span data-databeacon-icon="info" data-icon-size="14"></span> Edit
-		</button>
-		<button class="btn btn-small btn-danger" data-databeacon-action="delete" data-guid="{~D:Record.GUIDSavedQuery~}">
+		</a>
+		<a class="btn btn-small btn-danger" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/delete">
 			<span data-databeacon-icon="trash" data-icon-size="14"></span> Delete
-		</button>
+		</a>
 	</td>
 </tr>`
         }, {
@@ -10535,33 +10767,22 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-SavedQueries-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-SavedQueries-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpTarget = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpTarget) return;
-              this._handleAction(tmpTarget.getAttribute('data-databeacon-action'), tmpTarget.dataset);
-            });
-          }
+          this.pict.CSSMap.injectCSS();
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
         }
-        _handleAction(pAction, pData) {
+
+        // ── Router-handler entry points (called by Application) ────────────────
+        _togglePanel() {
           let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
-          if (!tmpProvider) return;
-          switch (pAction) {
-            case 'toggle-panel':
-              tmpProvider.toggleExpanded();
-              break;
-            case 'load':
-              this._loadRecord(pData && pData.guid);
-              break;
-            case 'edit':
-              this.openEditModal(pData && pData.guid);
-              break;
-            case 'delete':
-              this._deleteRecord(pData && pData.guid);
-              break;
+          if (tmpProvider && typeof tmpProvider.toggleExpanded === 'function') {
+            tmpProvider.toggleExpanded();
           }
+        }
+        _editQuery(pGUID) {
+          this.openEditModal(pGUID);
+        }
+        _deleteQuery(pGUID) {
+          this._deleteRecord(pGUID);
         }
         _loadRecord(pGUID) {
           let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
@@ -10779,7 +11000,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
     }, {
       "pict-view": 21
     }],
-    44: [function (require, module, exports) {
+    45: [function (require, module, exports) {
       /**
        * DataBeacon ThemeSwitcher View
        *
@@ -10899,12 +11120,12 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           Hash: 'DataBeacon-ThemeSwitcher-Template',
           Template: /*html*/`
 <div id="DataBeacon-ThemeSwitcher-Root" class="databeacon-theme-switcher">
-	<button type="button" class="databeacon-theme-switcher-btn" data-databeacon-action="cycle-mode" title="{~D:AppData.ThemeSwitcher.ModeTitle~}">
+	<a class="databeacon-theme-switcher-btn" href="#/theme/cycle-mode" title="{~D:AppData.ThemeSwitcher.ModeTitle~}">
 		<span data-databeacon-icon="{~D:AppData.ThemeSwitcher.ModeIcon~}" data-icon-size="16"></span>
-	</button>
-	<button type="button" class="databeacon-theme-switcher-btn" data-databeacon-action="open-theme-picker" title="Choose theme">
+	</a>
+	<a class="databeacon-theme-switcher-btn" href="#/theme/picker/open" title="Choose theme">
 		<span data-databeacon-icon="palette" data-icon-size="16"></span>
-	</button>
+	</a>
 </div>`
         }, {
           Hash: 'DataBeacon-ThemeSwitcher-Modal',
@@ -10913,7 +11134,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         }, {
           Hash: 'DataBeacon-ThemeSwitcher-Tile',
           Template: /*html*/`
-<button type="button" class="databeacon-theme-tile {~D:Record.SelectedClass~}" data-databeacon-action="apply-theme" data-theme-key="{~D:Record.Key~}">
+<a class="databeacon-theme-tile {~D:Record.SelectedClass~}" href="#/theme/{~D:Record.Key~}/apply">
 	<div class="databeacon-theme-tile-header">
 		<span class="databeacon-theme-tile-name">{~D:Record.Label~}</span>
 		{~TIf:DataBeacon-ThemeSwitcher-Tile-CurrentBadge::Record.IsCurrent^TRUE^x~}
@@ -10925,7 +11146,7 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 		<span class="databeacon-theme-tile-swatch" style="background: {~D:Record.Swatch3~};"></span>
 		<span class="databeacon-theme-tile-swatch" style="background: {~D:Record.Swatch4~};"></span>
 	</div>
-</button>`
+</a>`
         }, {
           Hash: 'DataBeacon-ThemeSwitcher-Tile-CurrentBadge',
           Template: `<span class="databeacon-theme-tile-current-badge">Current</span>`
@@ -10957,7 +11178,6 @@ body[data-theme="sgi"][data-mode-effective="dark"]
       class PictViewDataBeaconThemeSwitcher extends libPictView {
         constructor(pFable, pOptions, pServiceHash) {
           super(pFable, pOptions, pServiceHash);
-          this._ModalListenerAttached = false;
         }
         onBeforeRender(pRenderable) {
           let tmpTheme = this.pict.providers['DataBeacon-Theme'];
@@ -10974,34 +11194,8 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent) {
           let tmpIcons = this.pict.providers['DataBeacon-Icons'];
           if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ThemeSwitcher-Root');
-          let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-ThemeSwitcher-Root');
-          if (tmpRootList && tmpRootList.length > 0) {
-            tmpRootList[0].addEventListener('click', pEvent => {
-              let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-              if (!tmpBtn) return;
-              this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-            });
-          }
-
-          // Delegate clicks on theme tiles inside the pict-section-modal.
-          // The modal dialog lives at document.body level and is re-created on
-          // each open/close, but its container element stays around; attaching
-          // once on document is the most robust wiring.
-          if (!this._ModalListenerAttached && typeof document !== 'undefined') {
-            document.addEventListener('click', pEvent => {
-              let tmpTile = pEvent.target.closest('[data-databeacon-action="apply-theme"]');
-              if (!tmpTile) return;
-              let tmpKey = tmpTile.getAttribute('data-theme-key');
-              this._applyThemeFromTile(tmpKey);
-            });
-            this._ModalListenerAttached = true;
-          }
+          this.pict.CSSMap.injectCSS();
           return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
-        }
-        _handleAction(pAction) {
-          let tmpTheme = this.pict.providers['DataBeacon-Theme'];
-          if (!tmpTheme) return;
-          if (pAction === 'cycle-mode') tmpTheme.cycleMode();else if (pAction === 'open-theme-picker') this._openPicker();
         }
         _openPicker() {
           let tmpModal = this.pict.views.PictSectionModal;

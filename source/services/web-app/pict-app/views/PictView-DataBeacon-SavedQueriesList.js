@@ -63,13 +63,13 @@ const _ViewConfiguration =
 			Hash: 'DataBeacon-SavedQueriesList-Template',
 			Template: /*html*/`
 <div id="DataBeacon-SavedQueries-Root" class="section databeacon-saved-panel">
-	<div class="databeacon-saved-header" data-databeacon-action="toggle-panel">
+	<a class="databeacon-saved-header" href="#/saved-queries/toggle">
 		<h2>Saved Queries ({~D:AppData.SavedQueries.Count:0~})</h2>
 		<div class="databeacon-saved-header-right">
 			<span>{~D:AppData.SavedQueries.ToggleLabel~}</span>
 			<span data-databeacon-icon="{~D:AppData.SavedQueries.ToggleIcon~}" data-icon-size="16"></span>
 		</div>
-	</div>
+	</a>
 	{~TemplateIfAbsolute:DataBeacon-SavedQueriesList-Body:AppData.SavedQueries:AppData.SavedQueries.Expanded^TRUE^x~}
 </div>`
 		},
@@ -107,15 +107,15 @@ const _ViewConfiguration =
 	<td>{~D:Record.DateLastRunDisplay~}</td>
 	<td>{~D:Record.LastRowCountDisplay~}</td>
 	<td class="actions-cell">
-		<button class="btn btn-small btn-primary" data-databeacon-action="load" data-guid="{~D:Record.GUIDSavedQuery~}">
+		<a class="btn btn-small btn-primary" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/load">
 			<span data-databeacon-icon="play" data-icon-size="14"></span> Load
-		</button>
-		<button class="btn btn-small btn-secondary" data-databeacon-action="edit" data-guid="{~D:Record.GUIDSavedQuery~}">
+		</a>
+		<a class="btn btn-small btn-secondary" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/edit">
 			<span data-databeacon-icon="info" data-icon-size="14"></span> Edit
-		</button>
-		<button class="btn btn-small btn-danger" data-databeacon-action="delete" data-guid="{~D:Record.GUIDSavedQuery~}">
+		</a>
+		<a class="btn btn-small btn-danger" href="#/saved-queries/{~D:Record.GUIDSavedQuery~}/delete">
 			<span data-databeacon-icon="trash" data-icon-size="14"></span> Delete
-		</button>
+		</a>
 	</td>
 </tr>`
 		},
@@ -177,41 +177,18 @@ class PictViewDataBeaconSavedQueriesList extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-SavedQueries-Root');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-SavedQueries-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpTarget = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpTarget) return;
-				this._handleAction(tmpTarget.getAttribute('data-databeacon-action'), tmpTarget.dataset);
-			});
-		}
-
+		this.pict.CSSMap.injectCSS();
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
-	_handleAction(pAction, pData)
+	// ── Router-handler entry points (called by Application) ────────────────
+	_togglePanel()
 	{
 		let tmpProvider = this.pict.providers['DataBeacon-SavedQueries'];
-		if (!tmpProvider) return;
-
-		switch (pAction)
-		{
-			case 'toggle-panel':
-				tmpProvider.toggleExpanded();
-				break;
-			case 'load':
-				this._loadRecord(pData && pData.guid);
-				break;
-			case 'edit':
-				this.openEditModal(pData && pData.guid);
-				break;
-			case 'delete':
-				this._deleteRecord(pData && pData.guid);
-				break;
-		}
+		if (tmpProvider && typeof tmpProvider.toggleExpanded === 'function') { tmpProvider.toggleExpanded(); }
 	}
+	_editQuery(pGUID)   { this.openEditModal(pGUID); }
+	_deleteQuery(pGUID) { this._deleteRecord(pGUID); }
 
 	_loadRecord(pGUID)
 	{

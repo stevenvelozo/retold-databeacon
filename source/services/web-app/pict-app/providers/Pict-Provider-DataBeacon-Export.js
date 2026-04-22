@@ -244,6 +244,11 @@ class PictProviderDataBeaconExport extends libPictProvider
 		}
 		try
 		{
+			// Standard browser-download pattern: synthesize a hidden <a> with
+			// an object URL and programmatically click it, then remove.  No
+			// ContentAssignment analog for transient off-DOM anchor tricks,
+			// so this is one of the pict "unless absolutely necessary"
+			// carve-outs (downloads, popovers, tooltips).
 			let tmpBlob = new Blob([pContent], { type: `${pMime};charset=utf-8` });
 			let tmpUrl = URL.createObjectURL(tmpBlob);
 			let tmpAnchor = document.createElement('a');

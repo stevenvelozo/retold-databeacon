@@ -12,12 +12,12 @@ const libPictView = require('pict-view');
 
 const _NavItems =
 [
-	{ View: 'Dashboard',     Label: 'Dashboard',     Icon: 'dashboard' },
-	{ View: 'Connections',   Label: 'Connections',   Icon: 'connections' },
-	{ View: 'Introspection', Label: 'Introspection', Icon: 'introspection' },
-	{ View: 'Endpoints',     Label: 'Endpoints',     Icon: 'endpoints' },
-	{ View: 'Records',       Label: 'Records',       Icon: 'records' },
-	{ View: 'SQL',           Label: 'SQL',           Icon: 'terminal' }
+	{ View: 'Dashboard',     Slug: 'dashboard',     Label: 'Dashboard',     Icon: 'dashboard' },
+	{ View: 'Connections',   Slug: 'connections',   Label: 'Connections',   Icon: 'connections' },
+	{ View: 'Introspection', Slug: 'introspection', Label: 'Introspection', Icon: 'introspection' },
+	{ View: 'Endpoints',     Slug: 'endpoints',     Label: 'Endpoints',     Icon: 'endpoints' },
+	{ View: 'Records',       Slug: 'records',       Label: 'Records',       Icon: 'records' },
+	{ View: 'SQL',           Slug: 'sql',           Label: 'SQL',           Icon: 'terminal' }
 ];
 
 const _ViewConfiguration =
@@ -69,10 +69,10 @@ const _ViewConfiguration =
 		{
 			Hash: 'DataBeacon-Layout-NavItem',
 			Template: /*html*/`
-<div class="nav-item" data-databeacon-action="navigate" data-view="{~D:Record.View~}" data-view-nav="{~D:Record.View~}">
+<a class="nav-item" href="#/view/{~D:Record.Slug~}" data-view-nav="{~D:Record.View~}">
 	<span class="nav-icon" data-databeacon-icon="{~D:Record.Icon~}" data-icon-size="20"></span>
 	<span class="nav-label">{~D:Record.Label~}</span>
-</div>`
+</a>`
 		}
 	],
 
@@ -110,21 +110,6 @@ class PictViewDataBeaconLayout extends libPictView
 
 		// Mount the theme-switcher widget into its sidebar-header slot.
 		if (this.pict.views.ThemeSwitcher) this.pict.views.ThemeSwitcher.render();
-
-		// Wire a single delegated click handler on the sidebar; the layout
-		// only renders when navigation state changes, so attaching on every
-		// render is cheap and correct (previous nav DOM is gone).
-		let tmpNavList = this.pict.ContentAssignment.getElement('#DataBeacon-Sidebar-Nav');
-		if (tmpNavList && tmpNavList.length > 0)
-		{
-			tmpNavList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action="navigate"]');
-				if (!tmpBtn) return;
-				let tmpViewName = tmpBtn.getAttribute('data-view');
-				if (tmpViewName) this.setActiveView(tmpViewName);
-			});
-		}
 
 		// Ensure every view's CSS (including pict-section-modal's) is in the DOM.
 		if (this.pict.CSSMap && typeof this.pict.CSSMap.injectCSS === 'function')

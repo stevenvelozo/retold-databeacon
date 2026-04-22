@@ -36,10 +36,10 @@ const _ViewConfiguration =
 		<div class="form-group checkbox-group"><label><input type="checkbox" id="databeacon-connform-autoconnect" /> Auto-connect on startup</label></div>
 	</div>
 	<div class="button-row">
-		<button class="btn btn-primary" data-databeacon-action="create-connection">
+		<a class="btn btn-primary" href="#/connections/create">
 			<span data-databeacon-icon="plus" data-icon-size="16"></span>
 			Add Connection
-		</button>
+		</a>
 	</div>
 </div>`
 		},
@@ -72,24 +72,13 @@ class PictViewDataBeaconConnectionForm extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ConnectionForm-Root');
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-ConnectionForm-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'));
-			});
-		}
-
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
-	_handleAction(pAction)
-	{
-		if (pAction === 'create-connection') this._createConnection();
-	}
+	// Router-handler entry point.  Application.createConnection() calls this
+	// via the `#/connections/create` route; values are read from the DOM at
+	// submit time so the form can re-render without clobbering pending input.
+	_submit() { this._createConnection(); }
 
 	_readValue(pSelector)
 	{

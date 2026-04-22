@@ -249,7 +249,14 @@ class DataBeaconProvider extends libPictProvider
 		this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
 		this.pict.AppData.RecordBrowser.PageSize = tmpCap;
 
-		this._apiCall('GET', `/1.0/${pTableName}s/${tmpStart}/${tmpCap}`, null,
+		// Dynamic endpoints are namespaced under the connection's sanitized
+		// name (see DataBeacon-DynamicEndpointManager.js), e.g.
+		// /1.0/lab-mysql-seed-books/Books/0/50 rather than /1.0/Books/0/50.
+		// Without the prefix we'd hit a 404 even though SQL reads still work.
+		let tmpPrefix = this._routeHashForSelectedConnection();
+		let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+
+		this._apiCall('GET', `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`, null,
 			(pError, pData) =>
 			{
 				if (!pError && pData)
@@ -261,6 +268,24 @@ class DataBeaconProvider extends libPictProvider
 				if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
 				if (fCallback) fCallback(pError, pData);
 			});
+	}
+
+	/**
+	 * Client-side equivalent of meadow-connection-manager's
+	 * sanitizeConnectionName -- lowercases and replaces non-URL-safe chars
+	 * (notably underscores) with hyphens.  Must stay in sync with the
+	 * server's sanitizer so route-hash matching works end-to-end.  Returns
+	 * '' when no connection is selected so callers can fall back to the
+	 * unprefixed /1.0/<Table> path.
+	 */
+	_routeHashForSelectedConnection()
+	{
+		let tmpCID = this.pict.AppData.SelectedConnectionID;
+		if (!tmpCID) { return ''; }
+		let tmpConns = this.pict.AppData.Connections || [];
+		let tmpConn = tmpConns.find((pC) => pC.IDBeaconConnection === tmpCID);
+		if (!tmpConn || !tmpConn.Name) { return ''; }
+		return String(tmpConn.Name).toLowerCase().replace(/[^a-z0-9-]+/g, '-');
 	}
 
 	_toNonNegativeInt(pValue, pDefault)
@@ -410,14 +435,20 @@ class DataBeaconProvider extends libPictProvider
 
 		let tmpShowPlaceholder = (tmpConnectedList.length !== 1) || !tmpCID;
 
+		let tmpRunDisabled = !tmpCID;
+		let tmpAllDisabled = tmpConnectedList.length === 0;
 		this.pict.AppData.Introspection =
 		{
 			ConnectedList: tmpListForTemplate,
 			ShowPlaceholder: tmpShowPlaceholder,
 			HasSelection: !!tmpSelectedConn,
 			SelectedBanner: tmpBanner,
-			RunDisabled: !tmpCID,
-			AllDisabled: tmpConnectedList.length === 0,
+			RunDisabled: tmpRunDisabled,
+			AllDisabled: tmpAllDisabled,
+			// Template-friendly class names; anchor elements don't honor
+			// `disabled` so we swap visual state via CSS classes.
+			RunDisabledClass: tmpRunDisabled ? 'disabled' : '',
+			AllDisabledClass: tmpAllDisabled ? 'disabled' : '',
 			State: tmpState,
 			TablesView: tmpTablesView,
 			TablesHeader: tmpTablesHeader,
@@ -486,6 +517,7 @@ class DataBeaconProvider extends libPictProvider
 		else if (tmpFetched === 0) tmpRangeLabel = `No records at start ${tmpCursorStart}.`;
 		else tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpCursorStart + tmpFetched} · Page size ${tmpPageSize}`;
 
+		let tmpLoadDisabled = !tmpSelectedTable;
 		this.pict.AppData.RecordBrowser =
 		{
 			TableOptions: tmpTableOptions,
@@ -496,7 +528,13 @@ class DataBeaconProvider extends libPictProvider
 			PageSize: tmpPageSize,
 			PrevDisabled: tmpPrevDisabled,
 			NextDisabled: tmpNextDisabled,
-			LoadDisabled: !tmpSelectedTable,
+			LoadDisabled: tmpLoadDisabled,
+			// Anchor-friendly class mirrors (pict imperative-first replaces
+			// delegated click handlers with `<a href="#/..."/>`; buttons-as-
+			// anchors don't honor the native `disabled` attribute).
+			PrevDisabledClass: tmpPrevDisabled ? 'disabled' : '',
+			NextDisabledClass: tmpNextDisabled ? 'disabled' : '',
+			LoadDisabledClass: tmpLoadDisabled ? 'disabled' : '',
 			RangeLabel: tmpRangeLabel,
 			State: tmpState,
 			ColumnList: tmpColumnList,

@@ -347,14 +347,17 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 								this._RegisteredRouteKeys[tmpKey] = true;
 							}
 
-							// Track the enabled endpoint
+							// Track the enabled endpoint.  RouteHash lets listAll...()
+							// emit the fully-namespaced /1.0/<hash>/<Table> base
+							// that clients (web UI, tests, docs) should hit.
 							this._EnabledEndpoints[tmpKey] =
 							{
 								dal: tmpDAL,
 								endpoints: tmpEndpoints,
 								connectionId: pIDBeaconConnection,
 								tableName: pTableName,
-								connectionType: tmpType
+								connectionType: tmpType,
+								routeHash: tmpRouteHash
 							};
 
 							// Update the IntrospectedTable record
@@ -439,12 +442,16 @@ class DataBeaconDynamicEndpointManager extends libFableServiceProviderBase
 		for (let i = 0; i < tmpKeys.length; i++)
 		{
 			let tmpEntry = this._EnabledEndpoints[tmpKeys[i]];
+			let tmpBase = tmpEntry.routeHash
+				? `/1.0/${tmpEntry.routeHash}/${tmpEntry.tableName}`
+				: `/1.0/${tmpEntry.tableName}`;
 			tmpEndpoints.push(
 			{
 				ConnectionID: tmpEntry.connectionId,
 				TableName: tmpEntry.tableName,
 				ConnectionType: tmpEntry.connectionType,
-				EndpointBase: `/1.0/${tmpEntry.tableName}`
+				RouteHash: tmpEntry.routeHash || '',
+				EndpointBase: tmpBase
 			});
 		}
 

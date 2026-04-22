@@ -66,14 +66,14 @@ const _ViewConfiguration =
 		<div class="help-text" id="DataBeacon-QueryPanel-EditorHint">{~D:AppData.QueryPanel.EditorHint~}</div>
 	</div>
 	<div class="button-row">
-		<button class="btn btn-primary" data-databeacon-action="execute">
+		<a class="btn btn-primary" href="#/queries/execute">
 			<span data-databeacon-icon="play" data-icon-size="16"></span>
 			Execute
-		</button>
-		<button class="btn btn-secondary" data-databeacon-action="save-query">
+		</a>
+		<a class="btn btn-secondary" href="#/queries/save">
 			<span data-databeacon-icon="save" data-icon-size="16"></span>
 			Save…
-		</button>
+		</a>
 	</div>
 	<div id="DataBeacon-QueryPanel-Results"></div>
 </div>`
@@ -95,18 +95,18 @@ const _ViewConfiguration =
 			Template: /*html*/`
 <div class="databeacon-export-bar">
 	<span class="databeacon-export-label">Export result:</span>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+	<a class="btn btn-small btn-secondary" href="#/queries/export/json">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/json-comp">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/csv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/queries/export/tsv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
-	</button>
+	</a>
 </div>`
 		},
 		{
@@ -169,17 +169,7 @@ class PictViewDataBeaconQueryPanel extends libPictView
 		// Tear it down (if present) and rebuild into the fresh target.
 		this._mountEditor();
 
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-QueryPanel-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			tmpRootList[0].addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn) return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-			});
-		}
-
+		this.pict.CSSMap.injectCSS();
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
@@ -257,6 +247,13 @@ class PictViewDataBeaconQueryPanel extends libPictView
 		tmpEl.addEventListener('keydown', fHandler, true);
 	}
 
+	// ── Caret / text-node helpers ──────────────────────────────────────────
+	// The methods below manipulate Selection / Range / TextNode directly via
+	// the browser DOM.  ContentAssignment's abstractions don't cover caret
+	// position or in-place text splicing, so these fall under the pict
+	// "DOM access unless absolutely necessary" carve-out (rich text input
+	// behavior).  Keep them scoped to CodeJar's contenteditable root only.
+
 	_computeCurrentLinePadding(pEditor)
 	{
 		let tmpSel = window.getSelection();
@@ -320,12 +317,12 @@ class PictViewDataBeaconQueryPanel extends libPictView
 	}
 
 
-	_handleAction(pAction, pData)
-	{
-		if (pAction === 'execute') this._execute();
-		else if (pAction === 'export') this._export(pData && pData.exportFormat);
-		else if (pAction === 'save-query') this._openSaveModal();
-	}
+	// ── Router-handler entry points (called by Application) ────────────────
+	// `#/queries/execute`, `#/queries/save`, `#/queries/export/:format` each
+	// resolve to one of these methods through PictApplication.
+	_executeQuery()                 { return this._execute(); }
+	_saveQuery()                    { return this._openSaveModal(); }
+	_exportQueryResult(pFormat)     { return this._export(pFormat); }
 
 	_openSaveModal()
 	{

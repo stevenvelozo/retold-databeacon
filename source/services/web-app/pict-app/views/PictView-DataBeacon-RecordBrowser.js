@@ -36,37 +36,37 @@ const _ViewConfiguration =
 	<div class="databeacon-records-toolbar">
 		<div class="form-group">
 			<label>Table</label>
-			<select id="databeacon-records-table" data-databeacon-action="select-table">
+			<select id="databeacon-records-table" onchange="{~P~}.PictApplication.selectRecordsTable(this.value)">
 				<option value="">-- Select Table --</option>
 				{~TS:DataBeacon-RecordBrowser-TableOption:AppData.RecordBrowser.TableOptions~}
 			</select>
 		</div>
 		<div class="form-group">
 			<label>Page Size</label>
-			<select class="databeacon-records-pagesize-select" data-databeacon-action="select-page-size">
+			<select class="databeacon-records-pagesize-select" onchange="{~P~}.PictApplication.changeRecordsPageSize(this.value)">
 				{~TS:DataBeacon-RecordBrowser-PageSizeOption:AppData.RecordBrowser.PageSizeOptions~}
 			</select>
 		</div>
 		<div class="form-group">
 			<label>Start</label>
-			<input type="number" class="databeacon-records-start-input" min="0" step="1" value="{~D:AppData.RecordBrowser.CursorStart:0~}" data-databeacon-action="change-start" />
+			<input type="number" class="databeacon-records-start-input" min="0" step="1" value="{~D:AppData.RecordBrowser.CursorStart:0~}" onchange="{~P~}.PictApplication.changeRecordsStart(this.value)" />
 		</div>
 		<div class="form-group">
 			<label>&nbsp;</label>
 			<div class="databeacon-records-pager-buttons">
-				<button class="btn btn-small btn-secondary" data-databeacon-action="prev">
+				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.PrevDisabledClass~}" href="#/records/prev">
 					<span data-databeacon-icon="chevron-left" data-icon-size="14"></span> Prev
-				</button>
-				<button class="btn btn-small btn-secondary" data-databeacon-action="next">
+				</a>
+				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.NextDisabledClass~}" href="#/records/next">
 					Next <span data-databeacon-icon="chevron-right" data-icon-size="14"></span>
-				</button>
+				</a>
 			</div>
 		</div>
 		<div class="form-group">
 			<label>&nbsp;</label>
-			<button class="btn btn-small btn-primary" data-databeacon-action="load">
+			<a class="btn btn-small btn-primary {~D:AppData.RecordBrowser.LoadDisabledClass~}" href="#/records/load">
 				<span data-databeacon-icon="refresh" data-icon-size="14"></span> Reload
-			</button>
+			</a>
 		</div>
 	</div>
 	<div class="databeacon-records-range">{~D:AppData.RecordBrowser.RangeLabel~}</div>
@@ -81,18 +81,18 @@ const _ViewConfiguration =
 			Template: /*html*/`
 <div class="databeacon-export-bar">
 	<span class="databeacon-export-label">Export current page:</span>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json">
+	<a class="btn btn-small btn-secondary" href="#/records/export/json">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="json-comp">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/json-comp">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> JSON Comprehension
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="csv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/csv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
-	</button>
-	<button class="btn btn-small btn-secondary" data-databeacon-action="export" data-export-format="tsv">
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export/tsv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
-	</button>
+	</a>
 </div>`
 		},
 		{
@@ -161,70 +161,89 @@ class PictViewDataBeaconRecordBrowser extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-RecordBrowser-Root');
 
-		this._applyDisabledAttributes();
-
-		let tmpRootList = this.pict.ContentAssignment.getElement('#DataBeacon-RecordBrowser-Root');
-		if (tmpRootList && tmpRootList.length > 0)
-		{
-			let tmpRoot = tmpRootList[0];
-			tmpRoot.addEventListener('click', (pEvent) =>
-			{
-				let tmpBtn = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpBtn || tmpBtn.tagName !== 'BUTTON') return;
-				this._handleAction(tmpBtn.getAttribute('data-databeacon-action'), tmpBtn.dataset);
-			});
-			tmpRoot.addEventListener('change', (pEvent) =>
-			{
-				let tmpEl = pEvent.target.closest('[data-databeacon-action]');
-				if (!tmpEl) return;
-				this._handleChange(tmpEl.getAttribute('data-databeacon-action'), tmpEl.value);
-			});
-		}
-
+		this.pict.CSSMap.injectCSS();
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
-	_applyDisabledAttributes()
-	{
-		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+	// ── Router-handler entry points (called by Application) ────────────────
+	// Each method is called from a `#/records/...` route or an inline
+	// onchange expression (select/input).  No addEventListener delegation.
 
-		let tmpList = this.pict.ContentAssignment.getElement('[data-databeacon-action="load"]');
-		if (tmpList && tmpList.length > 0) tmpList[0].disabled = !!tmpBrowser.LoadDisabled;
-
-		let tmpPrev = this.pict.ContentAssignment.getElement('[data-databeacon-action="prev"]');
-		if (tmpPrev && tmpPrev.length > 0) tmpPrev[0].disabled = !!tmpBrowser.PrevDisabled;
-
-		let tmpNext = this.pict.ContentAssignment.getElement('[data-databeacon-action="next"]');
-		if (tmpNext && tmpNext.length > 0) tmpNext[0].disabled = !!tmpBrowser.NextDisabled;
-	}
-
-	_handleAction(pAction, pData)
+	_loadCurrent()
 	{
 		let tmpProvider = this.pict.providers.DataBeaconProvider;
 		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
 		let tmpTable = this.pict.AppData.SelectedTableName;
+		if (!tmpTable) { return; }
 		let tmpStart = this._clampStart(tmpBrowser.CursorStart);
 		let tmpSize = this._clampSize(tmpBrowser.PageSize);
+		tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize);
+	}
 
-		switch (pAction)
+	_pagePrev()
+	{
+		let tmpProvider = this.pict.providers.DataBeaconProvider;
+		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+		let tmpTable = this.pict.AppData.SelectedTableName;
+		if (!tmpTable || tmpBrowser.PrevDisabled) { return; }
+		let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+		let tmpSize = this._clampSize(tmpBrowser.PageSize);
+		this.pict.AppData.RecordBrowser.CursorStart = Math.max(0, tmpStart - tmpSize);
+		tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+	}
+
+	_pageNext()
+	{
+		let tmpProvider = this.pict.providers.DataBeaconProvider;
+		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+		let tmpTable = this.pict.AppData.SelectedTableName;
+		if (!tmpTable || tmpBrowser.NextDisabled) { return; }
+		let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+		let tmpSize = this._clampSize(tmpBrowser.PageSize);
+		this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
+		tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+	}
+
+	_exportRecords(pFormat)
+	{
+		let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+		let tmpTable = this.pict.AppData.SelectedTableName;
+		let tmpStart = this._clampStart(tmpBrowser.CursorStart);
+		let tmpSize = this._clampSize(tmpBrowser.PageSize);
+		this._export(pFormat, tmpTable, tmpStart, tmpSize);
+	}
+
+	_selectTable(pTableName)
+	{
+		this.pict.AppData.SelectedTableName = pTableName || '';
+		if (!this.pict.AppData.RecordBrowser) { this.pict.AppData.RecordBrowser = {}; }
+		this.pict.AppData.RecordBrowser.CursorStart = 0;
+		let tmpProv = this.pict.providers.DataBeaconProvider;
+		if (pTableName && tmpProv)
 		{
-			case 'load':
-				if (tmpTable) tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize);
-				break;
-			case 'prev':
-				if (!tmpTable || tmpBrowser.PrevDisabled) return;
-				this.pict.AppData.RecordBrowser.CursorStart = Math.max(0, tmpStart - tmpSize);
-				tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
-				break;
-			case 'next':
-				if (!tmpTable || tmpBrowser.NextDisabled) return;
-				this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
-				tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
-				break;
-			case 'export':
-				this._export(pData && pData.exportFormat, tmpTable, tmpStart, tmpSize);
-				break;
+			tmpProv.loadRecords(pTableName, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
 		}
+		else if (tmpProv && typeof tmpProv.refreshRecordBrowserViewData === 'function')
+		{
+			tmpProv.refreshRecordBrowserViewData();
+			this.render();
+		}
+	}
+
+	_setPageSize(pRawValue)
+	{
+		let tmpSize = this._clampSize(pRawValue);
+		if (!this.pict.AppData.RecordBrowser) { this.pict.AppData.RecordBrowser = {}; }
+		this.pict.AppData.RecordBrowser.PageSize = tmpSize;
+		this._loadCurrent();
+	}
+
+	_setStart(pRawValue)
+	{
+		let tmpStart = this._clampStart(pRawValue);
+		if (!this.pict.AppData.RecordBrowser) { this.pict.AppData.RecordBrowser = {}; }
+		this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
+		this._loadCurrent();
 	}
 
 	_export(pFormat, pTable, pStart, pSize)
@@ -294,65 +313,6 @@ class PictViewDataBeaconRecordBrowser extends libPictView
 			}
 		}
 		return null;
-	}
-
-	_handleChange(pAction, pRawValue)
-	{
-		let tmpProvider = this.pict.providers.DataBeaconProvider;
-		let tmpTable = this.pict.AppData.SelectedTableName;
-
-		switch (pAction)
-		{
-			case 'select-table':
-			{
-				let tmpNext = pRawValue || null;
-				this.pict.AppData.SelectedTableName = tmpNext;
-				this.pict.AppData.RecordBrowser.CursorStart = 0;
-				if (tmpNext)
-				{
-					tmpProvider.loadRecords(tmpNext, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
-				}
-				else
-				{
-					this.pict.AppData.Records = [];
-					tmpProvider.refreshRecordBrowserViewData();
-					this.render();
-				}
-				break;
-			}
-			case 'select-page-size':
-			{
-				let tmpSize = this._clampSize(parseInt(pRawValue, 10));
-				this.pict.AppData.RecordBrowser.PageSize = tmpSize;
-				// Reset to start of range when page size changes — keeps behavior predictable.
-				this.pict.AppData.RecordBrowser.CursorStart = 0;
-				if (tmpTable)
-				{
-					tmpProvider.loadRecords(tmpTable, 0, tmpSize);
-				}
-				else
-				{
-					tmpProvider.refreshRecordBrowserViewData();
-					this.render();
-				}
-				break;
-			}
-			case 'change-start':
-			{
-				let tmpStart = this._clampStart(parseInt(pRawValue, 10));
-				this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
-				if (tmpTable)
-				{
-					tmpProvider.loadRecords(tmpTable, tmpStart, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
-				}
-				else
-				{
-					tmpProvider.refreshRecordBrowserViewData();
-					this.render();
-				}
-				break;
-			}
-		}
 	}
 
 	_clampStart(pValue)
