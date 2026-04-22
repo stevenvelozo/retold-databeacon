@@ -1,0 +1,50 @@
+{
+	"ProviderIdentifier": "PictRouter",
+
+	"AutoInitialize": true,
+	"AutoInitializeOrdinal": 0,
+
+	"Routes":
+	[
+		{ "path": "/view/dashboard",     "template": "{~LV:Pict.PictApplication.setActiveView(`Dashboard`)~}" },
+		{ "path": "/view/connections",   "template": "{~LV:Pict.PictApplication.setActiveView(`Connections`)~}" },
+		{ "path": "/view/introspection", "template": "{~LV:Pict.PictApplication.setActiveView(`Introspection`)~}" },
+		{ "path": "/view/endpoints",     "template": "{~LV:Pict.PictApplication.setActiveView(`Endpoints`)~}" },
+		{ "path": "/view/records",       "template": "{~LV:Pict.PictApplication.setActiveView(`Records`)~}" },
+		{ "path": "/view/sql",           "template": "{~LV:Pict.PictApplication.setActiveView(`SQL`)~}" },
+
+		{ "path": "/connections/create",            "template": "{~LV:Pict.PictApplication.createConnection()~}" },
+		{ "path": "/connections/:id/connect",       "template": "{~LV:Pict.PictApplication.connectConnection(Record.data.id)~}" },
+		{ "path": "/connections/:id/disconnect",    "template": "{~LV:Pict.PictApplication.disconnectConnection(Record.data.id)~}" },
+		{ "path": "/connections/:id/test",          "template": "{~LV:Pict.PictApplication.testConnection(Record.data.id)~}" },
+		{ "path": "/connections/:id/delete",        "template": "{~LV:Pict.PictApplication.deleteConnection(Record.data.id)~}" },
+		{ "path": "/connections/:id/introspect",    "template": "{~LV:Pict.PictApplication.introspectConnection(Record.data.id)~}" },
+
+		{ "path": "/introspection/run",             "template": "{~LV:Pict.PictApplication.runIntrospect()~}" },
+		{ "path": "/introspection/all",             "template": "{~LV:Pict.PictApplication.introspectAll()~}" },
+		{ "path": "/introspection/table/:connId/:table", "template": "{~LV:Pict.PictApplication.viewTable(Record.data.connId, Record.data.table)~}" },
+
+		{ "path": "/endpoints/refresh",             "template": "{~LV:Pict.PictApplication.refreshEndpoints()~}" },
+		{ "path": "/endpoints/:connId/:table/enable",  "template": "{~LV:Pict.PictApplication.enableEndpoint(Record.data.connId, Record.data.table)~}" },
+		{ "path": "/endpoints/:connId/:table/disable", "template": "{~LV:Pict.PictApplication.disableEndpoint(Record.data.connId, Record.data.table)~}" },
+		{ "path": "/endpoints/:tableName/browse",   "template": "{~LV:Pict.PictApplication.browseEndpoint(Record.data.tableName)~}" },
+
+		{ "path": "/records/prev",                  "template": "{~LV:Pict.PictApplication.recordsPrev()~}" },
+		{ "path": "/records/next",                  "template": "{~LV:Pict.PictApplication.recordsNext()~}" },
+		{ "path": "/records/load",                  "template": "{~LV:Pict.PictApplication.recordsLoad()~}" },
+		{ "path": "/records/export/:format",        "template": "{~LV:Pict.PictApplication.recordsExport(Record.data.format)~}" },
+
+		{ "path": "/queries/execute",               "template": "{~LV:Pict.PictApplication.executeQuery()~}" },
+		{ "path": "/queries/save",                  "template": "{~LV:Pict.PictApplication.saveQueryFromPanel()~}" },
+		{ "path": "/queries/export/:format",        "template": "{~LV:Pict.PictApplication.queryExport(Record.data.format)~}" },
+
+		{ "path": "/saved-queries/toggle",          "template": "{~LV:Pict.PictApplication.toggleSavedPanel()~}" },
+		{ "path": "/saved-queries/:guid/load",      "template": "{~LV:Pict.PictApplication.loadSavedQuery(Record.data.guid)~}" },
+		{ "path": "/saved-queries/:guid/edit",      "template": "{~LV:Pict.PictApplication.editSavedQuery(Record.data.guid)~}" },
+		{ "path": "/saved-queries/:guid/delete",    "template": "{~LV:Pict.PictApplication.deleteSavedQuery(Record.data.guid)~}" },
+
+		{ "path": "/theme/cycle-mode",              "template": "{~LV:Pict.PictApplication.cycleThemeMode()~}" },
+		{ "path": "/theme/picker/open",             "template": "{~LV:Pict.PictApplication.openThemePicker()~}" },
+		{ "path": "/theme/:key/apply",              "template": "{~LV:Pict.PictApplication.applyTheme(Record.data.key)~}" }
+	]
+}
