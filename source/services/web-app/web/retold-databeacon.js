@@ -3202,6 +3202,9 @@
           let tmpBtnStyle = pOptions.dangerous ? 'danger' : 'primary';
           let tmpDialog = document.createElement('div');
           tmpDialog.className = 'pict-modal-dialog';
+          if (pOptions.unbounded) {
+            tmpDialog.className += ' pict-modal-dialog--unbounded';
+          }
           tmpDialog.id = 'pict-modal-' + tmpId;
           tmpDialog.setAttribute('role', 'dialog');
           tmpDialog.setAttribute('aria-modal', 'true');
@@ -3241,6 +3244,9 @@
           let tmpHasPhrase = typeof pOptions.confirmPhrase === 'string' && pOptions.confirmPhrase.length > 0;
           let tmpDialog = document.createElement('div');
           tmpDialog.className = 'pict-modal-dialog';
+          if (pOptions.unbounded) {
+            tmpDialog.className += ' pict-modal-dialog--unbounded';
+          }
           tmpDialog.id = 'pict-modal-' + tmpId;
           tmpDialog.setAttribute('role', 'dialog');
           tmpDialog.setAttribute('aria-modal', 'true');
@@ -4194,6 +4200,7 @@
          * @param {Array} [pOptions.buttons] - Array of { Hash, Label, Style }
          * @param {boolean} [pOptions.closeable] - Whether the close button and overlay dismiss are enabled
          * @param {string} [pOptions.width] - CSS width value
+         * @param {boolean} [pOptions.unbounded] - If true, removes the default 90vh/90vw viewport cap. The dialog will grow with its content and may extend beyond the viewport.
          * @param {function} [pOptions.onOpen] - Called after dialog is shown, receives dialog element
          * @param {function} [pOptions.onClose] - Called after dialog is dismissed
          * @returns {Promise<string|null>} Resolves with clicked button Hash, or null on close
@@ -4217,6 +4224,9 @@
           let tmpId = this._modal._nextId();
           let tmpDialog = document.createElement('div');
           tmpDialog.className = 'pict-modal-dialog';
+          if (pOptions.unbounded) {
+            tmpDialog.className += ' pict-modal-dialog--unbounded';
+          }
           tmpDialog.id = 'pict-modal-' + tmpId;
           tmpDialog.setAttribute('role', 'dialog');
           tmpDialog.setAttribute('aria-modal', 'true');
@@ -4392,21 +4402,24 @@
           "title": "Confirm",
           "confirmLabel": "OK",
           "cancelLabel": "Cancel",
-          "dangerous": false
+          "dangerous": false,
+          "unbounded": false
         },
         "DefaultDoubleConfirmOptions": {
           "title": "Are you sure?",
           "confirmLabel": "Confirm",
           "cancelLabel": "Cancel",
           "phrasePrompt": "Type \"{phrase}\" to confirm:",
-          "confirmPhrase": ""
+          "confirmPhrase": "",
+          "unbounded": false
         },
         "DefaultModalOptions": {
           "title": "",
           "content": "",
           "buttons": [],
           "closeable": true,
-          "width": "480px"
+          "width": "480px",
+          "unbounded": false
         },
         "DefaultTooltipOptions": {
           "position": "top",
@@ -4535,6 +4548,15 @@
 {
 	opacity: 1;
 	transform: translate(-50%, -50%) translateY(0);
+}
+
+/* Unbounded modifier — lets callers opt out of the 90vh/90vw viewport cap.
+   Use with caution: content taller than the viewport will push buttons
+   below the fold. */
+.pict-modal-dialog.pict-modal-dialog--unbounded
+{
+	max-height: none;
+	max-width: none;
 }
 
 .pict-modal-dialog-header
@@ -6761,6 +6783,12 @@
             tmpView._exportRecords(pFormat);
           }
         }
+        recordsExportAll(pFormat) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._exportAllRecords === 'function') {
+            tmpView._exportAllRecords(pFormat);
+          }
+        }
         selectRecordsTable(pTableName) {
           let tmpView = this.pict.views.RecordBrowser;
           if (tmpView && typeof tmpView._selectTable === 'function') {
@@ -6773,11 +6801,38 @@
             tmpView._setPageSize(pSize);
           }
         }
-        changeRecordsStart(pStart) {
+        goToRecordsPage(pPage) {
           let tmpView = this.pict.views.RecordBrowser;
-          if (tmpView && typeof tmpView._setStart === 'function') {
-            tmpView._setStart(pStart);
+          if (tmpView && typeof tmpView._goToPage === 'function') {
+            tmpView._goToPage(pPage);
           }
+        }
+        applyRecordsFilter(pFilter) {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (!tmpView) {
+            return;
+          }
+          // If no value arg is supplied (the Apply button's route doesn't carry
+          // one; only the inline onchange does), read the filter input from the
+          // DOM at dispatch time so the user's last keystrokes are captured.
+          let tmpValue = typeof pFilter === 'string' ? pFilter : this._domValue('#databeacon-records-filter');
+          if (typeof tmpView._applyFilter === 'function') {
+            tmpView._applyFilter(tmpValue || '');
+          }
+        }
+        clearRecordsFilter() {
+          let tmpView = this.pict.views.RecordBrowser;
+          if (tmpView && typeof tmpView._clearFilter === 'function') {
+            tmpView._clearFilter();
+          }
+        }
+        _domValue(pSelector) {
+          let tmpList = this.pict.ContentAssignment.getElement(pSelector);
+          if (!tmpList || tmpList.length === 0) {
+            return '';
+          }
+          let tmpNode = typeof tmpList.length === 'number' && !('value' in tmpList) ? tmpList[0] : tmpList;
+          return tmpNode && 'value' in tmpNode ? tmpNode.value : '';
         }
 
         // ── Queries ─────────────────────────────────────────────────────────────
@@ -8242,30 +8297,96 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         // Records
         // ================================================================
 
-        loadRecords(pTableName, pStart, pCap, fCallback) {
+        loadRecords(pTableName, pStart, pCap, pFilterOrCallback, fCallback) {
+          // Backwards-compatible signature: callers that pre-date filter support
+          // pass `(table, start, cap, fCallback)`.  New callers pass
+          // `(table, start, cap, filter, fCallback)`.
+          let tmpFilter = '';
+          let tmpCallback = fCallback;
+          if (typeof pFilterOrCallback === 'function') {
+            tmpCallback = pFilterOrCallback;
+          } else if (typeof pFilterOrCallback === 'string') {
+            tmpFilter = pFilterOrCallback.trim();
+          }
           let tmpStart = this._toNonNegativeInt(pStart, 0);
           let tmpCap = this._toPositiveInt(pCap, 50);
-
-          // Track the fetch intent so the view-data computation can decide the
-          // Prev/Next state + range label even if the response is empty.
           if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
           this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
           this.pict.AppData.RecordBrowser.PageSize = tmpCap;
+          this.pict.AppData.RecordBrowser.FilterString = tmpFilter;
 
           // Dynamic endpoints are namespaced under the connection's sanitized
-          // name (see DataBeacon-DynamicEndpointManager.js), e.g.
-          // /1.0/lab-mysql-seed-books/Books/0/50 rather than /1.0/Books/0/50.
-          // Without the prefix we'd hit a 404 even though SQL reads still work.
+          // name (see DataBeacon-DynamicEndpointManager.js).  Filtered reads
+          // route to /{Scope}s/FilteredTo/<filter>/<begin>/<cap>; unfiltered
+          // to /{Scope}s/<begin>/<cap>.  Filter values go in the URL per the
+          // meadow-endpoints convention (FBL expression, URL-encoded).
           let tmpPrefix = this._routeHashForSelectedConnection();
           let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
-          this._apiCall('GET', `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`, null, (pError, pData) => {
+          let tmpPath = tmpFilter ? `${tmpPathBase}/${pTableName}s/FilteredTo/${encodeURIComponent(tmpFilter)}/${tmpStart}/${tmpCap}` : `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`;
+          this._apiCall('GET', tmpPath, null, (pError, pData) => {
             if (!pError && pData) {
               this.pict.AppData.Records = Array.isArray(pData) ? pData : pData.Records || [];
               this.pict.AppData.SelectedTableName = pTableName;
             }
             this.refreshRecordBrowserViewData();
             if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
-            if (fCallback) fCallback(pError, pData);
+            if (tmpCallback) tmpCallback(pError, pData);
+          });
+        }
+
+        /**
+         * Non-blocking count fetch.  Updates AppData.RecordBrowser.TotalCount
+         * and re-renders the RecordBrowser so the page strip + badge refresh
+         * whenever the server answers.  Failures are swallowed (leaves
+         * TotalCount null; UI falls back to the "no count, probe with Next"
+         * behavior).
+         */
+        loadRecordCount(pTableName, pFilter, fCallback) {
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
+          }
+          this.pict.AppData.RecordBrowser.TotalCount = null;
+          this.pict.AppData.RecordBrowser.CountIsLoading = true;
+          let tmpPrefix = this._routeHashForSelectedConnection();
+          let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+          let tmpFilter = (pFilter || '').trim();
+          let tmpPath = tmpFilter ? `${tmpPathBase}/${pTableName}s/Count/FilteredTo/${encodeURIComponent(tmpFilter)}` : `${tmpPathBase}/${pTableName}s/Count`;
+          this._apiCall('GET', tmpPath, null, (pError, pData) => {
+            let tmpCount = null;
+            if (!pError && pData != null) {
+              // meadow-endpoints returns { Count: N } or just N.
+              if (typeof pData === 'number') {
+                tmpCount = pData;
+              } else if (typeof pData === 'object' && typeof pData.Count === 'number') {
+                tmpCount = pData.Count;
+              }
+            }
+            this.pict.AppData.RecordBrowser.TotalCount = tmpCount;
+            this.pict.AppData.RecordBrowser.CountIsLoading = false;
+            this.refreshRecordBrowserViewData();
+            if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
+            if (fCallback) fCallback(pError, tmpCount);
+          });
+        }
+
+        /**
+         * Full-set fetch for export.  Hits the unpaginated endpoint (no begin/cap)
+         * which meadow-endpoints exposes for filtered reads.  For unfiltered we
+         * fall back to a large single page -- servers should cap this themselves
+         * but callers should treat it as "up to the server's hard limit" rather
+         * than a guaranteed full enumeration of million-row tables.
+         */
+        loadRecordsAll(pTableName, pFilter, fCallback) {
+          let tmpPrefix = this._routeHashForSelectedConnection();
+          let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+          let tmpFilter = (pFilter || '').trim();
+          let tmpPath = tmpFilter ? `${tmpPathBase}/${pTableName}s/FilteredTo/${encodeURIComponent(tmpFilter)}` : `${tmpPathBase}/${pTableName}s/0/100000`;
+          this._apiCall('GET', tmpPath, null, (pError, pData) => {
+            if (pError) {
+              return fCallback(pError);
+            }
+            let tmpRows = Array.isArray(pData) ? pData : pData && pData.Records || [];
+            return fCallback(null, tmpRows);
           });
         }
 
@@ -8436,6 +8557,9 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           let tmpPrev = this.pict.AppData.RecordBrowser || {};
           let tmpCursorStart = this._toNonNegativeInt(tmpPrev.CursorStart, 0);
           let tmpPageSize = this._toPositiveInt(tmpPrev.PageSize, 50);
+          let tmpFilter = typeof tmpPrev.FilterString === 'string' ? tmpPrev.FilterString : '';
+          let tmpTotalCount = typeof tmpPrev.TotalCount === 'number' ? tmpPrev.TotalCount : null;
+          let tmpCountIsLoading = !!tmpPrev.CountIsLoading;
           let tmpTableOptions = [];
           for (let i = 0; i < tmpEndpoints.length; i++) {
             tmpTableOptions.push({
@@ -8466,14 +8590,53 @@ body[data-theme="sgi"][data-mode-effective="dark"]
               });
             }
           }
-          let tmpPrevDisabled = !tmpSelectedTable || tmpCursorStart === 0;
-          // "Probably more pages" when the server returned a full page. An
-          // exactly-full last page over-counts by one page and shows an empty
-          // Next; that's an acceptable trade for not needing a COUNT(*) call.
-          let tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize;
+          let tmpCurrentPage = Math.floor(tmpCursorStart / tmpPageSize) + 1;
+          let tmpPageCount = tmpTotalCount === null || tmpTotalCount <= 0 ? 0 : Math.max(1, Math.ceil(tmpTotalCount / tmpPageSize));
+
+          // Prev/Next:
+          //   With a count known: both bounded by the count-derived page range.
+          //   Without a count: fall back to probe-next-if-page-was-full heuristic.
+          let tmpPrevDisabled = !tmpSelectedTable || tmpCurrentPage <= 1;
+          let tmpNextDisabled;
+          if (tmpPageCount > 0) {
+            tmpNextDisabled = !tmpSelectedTable || tmpCurrentPage >= tmpPageCount;
+          } else {
+            tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize;
+          }
           let tmpRangeLabel;
-          if (!tmpSelectedTable) tmpRangeLabel = '';else if (tmpFetched === 0) tmpRangeLabel = `No records at start ${tmpCursorStart}.`;else tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpCursorStart + tmpFetched} · Page size ${tmpPageSize}`;
+          if (!tmpSelectedTable) {
+            tmpRangeLabel = '';
+          } else if (tmpFetched === 0) {
+            tmpRangeLabel = tmpFilter ? `No records match the current filter.` : `No records at start ${tmpCursorStart}.`;
+          } else {
+            let tmpRangeEnd = tmpCursorStart + tmpFetched;
+            tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpRangeEnd} · Page size ${tmpPageSize}`;
+            if (tmpPageCount > 0) {
+              tmpRangeLabel += ` · Page ${tmpCurrentPage} of ${tmpPageCount}`;
+            }
+          }
+
+          // Label for the "Export all" action and the count badge.  Phrased as
+          // "N filtered records" or "N records" so the user can see the full
+          // scope of the download before clicking.
+          let tmpTotalCountLabel = '';
+          let tmpFullExportLabel = 'records';
+          if (tmpCountIsLoading) {
+            tmpTotalCountLabel = 'counting…';
+            tmpFullExportLabel = tmpFilter ? 'filtered records (counting…)' : 'records (counting…)';
+          } else if (tmpTotalCount !== null) {
+            tmpTotalCountLabel = `${tmpTotalCount.toLocaleString()} total`;
+            tmpFullExportLabel = tmpFilter ? `${tmpTotalCount.toLocaleString()} filtered records` : `${tmpTotalCount.toLocaleString()} records`;
+          }
+
+          // Route-href builders.  Emitting the full hash URL in AppData means
+          // the template can bind {~D:...Href~} directly without computing paths.
+          let tmpHrefBase = '#/records/page/';
+          let tmpPrevHref = tmpCurrentPage > 1 ? `${tmpHrefBase}${tmpCurrentPage - 1}` : `${tmpHrefBase}${tmpCurrentPage}`;
+          let tmpNextHref = tmpPageCount === 0 || tmpCurrentPage < tmpPageCount ? `${tmpHrefBase}${tmpCurrentPage + 1}` : `${tmpHrefBase}${tmpCurrentPage}`;
+          let tmpPageLinks = this._buildPageLinks(tmpCurrentPage, tmpPageCount, tmpHrefBase);
           let tmpLoadDisabled = !tmpSelectedTable;
+          let tmpHasTotalCount = tmpTotalCount !== null || tmpCountIsLoading;
           this.pict.AppData.RecordBrowser = {
             TableOptions: tmpTableOptions,
             PageSizeOptions: tmpPageSizeOptions,
@@ -8481,6 +8644,19 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             TableName: tmpSelectedTable,
             CursorStart: tmpCursorStart,
             PageSize: tmpPageSize,
+            Page: tmpCurrentPage,
+            PageCount: tmpPageCount,
+            PageLinks: tmpPageLinks,
+            ShowPagination: tmpPageCount > 1 || tmpPageCount === 0 && (tmpCurrentPage > 1 || !tmpNextDisabled),
+            PrevHref: tmpPrevHref,
+            NextHref: tmpNextHref,
+            FilterString: tmpFilter,
+            FilterClearClass: tmpFilter ? '' : 'disabled',
+            TotalCount: tmpTotalCount,
+            TotalCountLabel: tmpTotalCountLabel,
+            HasTotalCount: tmpHasTotalCount,
+            FullExportLabel: tmpFullExportLabel,
+            CountIsLoading: tmpCountIsLoading,
             PrevDisabled: tmpPrevDisabled,
             NextDisabled: tmpNextDisabled,
             LoadDisabled: tmpLoadDisabled,
@@ -8495,6 +8671,58 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             ColumnList: tmpColumnList,
             Rows: tmpRows
           };
+        }
+
+        /**
+         * Produce a pagination record list for the template.
+         *
+         * Shape (each entry is one of):
+         *   { Kind: 'link', Label, Href, CurrentClass }
+         *   { Kind: 'ellipsis' }
+         *
+         * Elides middle pages for large sets so the strip stays compact:
+         *   1  2  3  …  42  43  44  45  46  …  98  99  100    (when current=44)
+         *
+         * If PageCount is 0 (no count yet), returns an empty list; the template
+         * falls back to Prev/Next-only navigation.
+         */
+        _buildPageLinks(pCurrent, pPageCount, pHrefBase) {
+          if (pPageCount <= 0) {
+            return [];
+          }
+          let tmpOut = [];
+          let tmpAdd = pPage => {
+            tmpOut.push({
+              Kind: 'link',
+              Label: String(pPage),
+              Href: `${pHrefBase}${pPage}`,
+              CurrentClass: pPage === pCurrent ? 'current' : ''
+            });
+          };
+          let tmpEllipsis = () => tmpOut.push({
+            Kind: 'ellipsis'
+          });
+          if (pPageCount <= 9) {
+            for (let i = 1; i <= pPageCount; i++) {
+              tmpAdd(i);
+            }
+            return tmpOut;
+          }
+
+          // Always show first two + last two + a window around the current page.
+          let tmpShown = new Set([1, 2, pPageCount - 1, pPageCount, pCurrent - 1, pCurrent, pCurrent + 1]);
+          // Clamp window to valid range.
+          let tmpSorted = Array.from(tmpShown).filter(n => n >= 1 && n <= pPageCount).sort((a, b) => a - b);
+          let tmpPrev = 0;
+          for (let i = 0; i < tmpSorted.length; i++) {
+            let tmpPg = tmpSorted[i];
+            if (tmpPg - tmpPrev > 1) {
+              tmpEllipsis();
+            }
+            tmpAdd(tmpPg);
+            tmpPrev = tmpPg;
+          }
+          return tmpOut;
         }
         _buildPageSizeOptions(pCurrent) {
           let tmpChoices = [10, 25, 50, 100, 200, 500];
@@ -8756,8 +8984,20 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           "path": "/records/load",
           "template": "{~LV:Pict.PictApplication.recordsLoad()~}"
         }, {
+          "path": "/records/page/:n",
+          "template": "{~LV:Pict.PictApplication.goToRecordsPage(Record.data.n)~}"
+        }, {
+          "path": "/records/filter/apply",
+          "template": "{~LV:Pict.PictApplication.applyRecordsFilter()~}"
+        }, {
+          "path": "/records/filter/clear",
+          "template": "{~LV:Pict.PictApplication.clearRecordsFilter()~}"
+        }, {
           "path": "/records/export/:format",
           "template": "{~LV:Pict.PictApplication.recordsExport(Record.data.format)~}"
+        }, {
+          "path": "/records/export-all/:format",
+          "template": "{~LV:Pict.PictApplication.recordsExportAll(Record.data.format)~}"
         }, {
           "path": "/queries/execute",
           "template": "{~LV:Pict.PictApplication.executeQuery()~}"
@@ -10244,12 +10484,73 @@ body[data-theme="sgi"][data-mode-effective="dark"]
         DefaultDestinationAddress: '#DataBeacon-RecordBrowser-Slot',
         AutoRender: false,
         CSS: /*css*/`
-		.databeacon-records-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
-		.databeacon-records-toolbar .form-group { margin: 0; }
-		.databeacon-records-pager-buttons { display: flex; gap: 6px; }
+		.databeacon-records-toolbar
+		{
+			display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+		}
+		.databeacon-records-toolbar .form-group
+		{
+			display: flex; flex-direction: column; gap: 4px; margin: 0;
+		}
+		.databeacon-records-toolbar .form-group label
+		{
+			font-size: 12px; line-height: 1; color: var(--text-muted);
+			text-transform: uppercase; letter-spacing: 0.4px;
+			margin: 0;
+		}
+		/* Single uniform control height: inputs, selects, and anchor-styled
+		   buttons inside the toolbar all share this so labels stay aligned. */
+		.databeacon-records-toolbar input,
+		.databeacon-records-toolbar select,
+		.databeacon-records-toolbar .btn
+		{
+			height: 32px;
+			box-sizing: border-box;
+			line-height: 1.2;
+			padding: 0 10px;
+			font-size: 13px;
+		}
+		/* Anchors styled as buttons don't vertically center their text the
+		   way block inputs do; inline-flex centers the label (and any icon
+		   span) cleanly on the 32px row. */
+		.databeacon-records-toolbar .btn
+		{
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+		}
+		.databeacon-records-pager-buttons { display: flex; gap: 6px; align-items: stretch; }
 		.databeacon-records-start-input { width: 100px; }
 		.databeacon-records-pagesize-select { width: 90px; }
+		/* Flex grow lives on the form-group (a toolbar row child) so the
+		   group widens on the main axis; the input below just fills the
+		   group's width.  Putting flex-basis on the input itself would set
+		   its height inside the column-flex form-group. */
+		.databeacon-records-filter-group { flex: 1 1 260px; min-width: 260px; max-width: 520px; }
+		.databeacon-records-filter-input { width: 100%; }
 		.databeacon-records-range { margin-top: 8px; color: var(--text-muted); font-size: 12px; }
+		.databeacon-records-count-badge
+		{
+			display: inline-block; padding: 1px 8px; margin-left: 6px;
+			border-radius: 10px; background: var(--bg-input); color: var(--text-primary);
+			font-size: 11px; font-weight: 600;
+		}
+		.databeacon-records-pagination
+		{
+			display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+			margin-top: 14px;
+		}
+		.databeacon-records-pagination .btn { min-width: 34px; padding: 0 8px; height: 30px; }
+		.databeacon-records-pagination .btn.current
+		{
+			background: var(--accent-primary); color: var(--bg-card);
+			border-color: var(--accent-primary);
+		}
+		.databeacon-records-pagination-ellipsis
+		{
+			padding: 0 6px; color: var(--text-muted); font-size: 13px;
+		}
 		.databeacon-export-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
 		.databeacon-export-bar .databeacon-export-label { color: var(--text-muted); font-size: 12px; margin-right: 4px; }
 	`,
@@ -10272,18 +10573,18 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 			</select>
 		</div>
 		<div class="form-group">
-			<label>Start</label>
-			<input type="number" class="databeacon-records-start-input" min="0" step="1" value="{~D:AppData.RecordBrowser.CursorStart:0~}" onchange="{~P~}.PictApplication.changeRecordsStart(this.value)" />
+			<label>Page</label>
+			<input type="number" class="databeacon-records-start-input" min="1" step="1" value="{~D:AppData.RecordBrowser.Page:1~}" onchange="{~P~}.PictApplication.goToRecordsPage(this.value)" />
+		</div>
+		<div class="form-group databeacon-records-filter-group">
+			<label>Filter (meadow FBL)</label>
+			<input type="text" id="databeacon-records-filter" class="databeacon-records-filter-input" placeholder="FBV~Column~EQ~Value~FBV~Other~LK~%25foo%25" value="{~D:AppData.RecordBrowser.FilterString:~}" onchange="{~P~}.PictApplication.applyRecordsFilter(this.value)" />
 		</div>
 		<div class="form-group">
 			<label>&nbsp;</label>
 			<div class="databeacon-records-pager-buttons">
-				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.PrevDisabledClass~}" href="#/records/prev">
-					<span data-databeacon-icon="chevron-left" data-icon-size="14"></span> Prev
-				</a>
-				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.NextDisabledClass~}" href="#/records/next">
-					Next <span data-databeacon-icon="chevron-right" data-icon-size="14"></span>
-				</a>
+				<a class="btn btn-small btn-secondary" href="#/records/filter/apply" title="Apply the filter currently in the input">Apply</a>
+				<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.FilterClearClass~}" href="#/records/filter/clear" title="Remove the filter">Clear</a>
 			</div>
 		</div>
 		<div class="form-group">
@@ -10293,10 +10594,14 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 			</a>
 		</div>
 	</div>
-	<div class="databeacon-records-range">{~D:AppData.RecordBrowser.RangeLabel~}</div>
+	<div class="databeacon-records-range">
+		{~D:AppData.RecordBrowser.RangeLabel~}
+		{~TemplateIfAbsolute:DataBeacon-RecordBrowser-CountBadge:AppData.RecordBrowser:AppData.RecordBrowser.HasTotalCount^TRUE^x~}
+	</div>
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Empty:AppData.RecordBrowser:AppData.RecordBrowser.State^==^Empty~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-NoSelection:AppData.RecordBrowser:AppData.RecordBrowser.State^==^NoSelection~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Table:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
+	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-Pagination:AppData.RecordBrowser:AppData.RecordBrowser.ShowPagination^TRUE^x~}
 	{~TemplateIfAbsolute:DataBeacon-RecordBrowser-ExportBar:AppData.RecordBrowser:AppData.RecordBrowser.State^==^HasRows~}
 </div>`
         }, {
@@ -10316,7 +10621,43 @@ body[data-theme="sgi"][data-mode-effective="dark"]
 	<a class="btn btn-small btn-secondary" href="#/records/export/tsv">
 		<span data-databeacon-icon="download" data-icon-size="14"></span> TSV
 	</a>
+</div>
+<div class="databeacon-export-bar">
+	<span class="databeacon-export-label">Export <strong>all {~D:AppData.RecordBrowser.FullExportLabel~}</strong>:</span>
+	<a class="btn btn-small btn-secondary" href="#/records/export-all/json-comp">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> Comprehension
+	</a>
+	<a class="btn btn-small btn-secondary" href="#/records/export-all/csv">
+		<span data-databeacon-icon="download" data-icon-size="14"></span> CSV
+	</a>
 </div>`
+        }, {
+          Hash: 'DataBeacon-RecordBrowser-CountBadge',
+          Template: `<span class="databeacon-records-count-badge">{~D:AppData.RecordBrowser.TotalCountLabel~}</span>`
+        }, {
+          Hash: 'DataBeacon-RecordBrowser-Pagination',
+          Template: /*html*/`
+<div class="databeacon-records-pagination">
+	<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.PrevDisabledClass~}" href="{~D:AppData.RecordBrowser.PrevHref~}" title="Previous page">
+		<span data-databeacon-icon="chevron-left" data-icon-size="14"></span>
+	</a>
+	{~TS:DataBeacon-RecordBrowser-PaginationLink:AppData.RecordBrowser.PageLinks~}
+	<a class="btn btn-small btn-secondary {~D:AppData.RecordBrowser.NextDisabledClass~}" href="{~D:AppData.RecordBrowser.NextHref~}" title="Next page">
+		<span data-databeacon-icon="chevron-right" data-icon-size="14"></span>
+	</a>
+</div>`
+        }, {
+          // Each pagination entry is either a link (Kind=link) or an ellipsis
+          // spacer (Kind=ellipsis).  Rendered via TIf on Kind so one template
+          // covers both cases without a branch in the provider.
+          Hash: 'DataBeacon-RecordBrowser-PaginationLink',
+          Template: /*html*/`{~TIf:DataBeacon-RecordBrowser-PaginationLinkItem::Record.Kind^link^x~}{~TIf:DataBeacon-RecordBrowser-PaginationEllipsis::Record.Kind^ellipsis^x~}`
+        }, {
+          Hash: 'DataBeacon-RecordBrowser-PaginationLinkItem',
+          Template: `<a class="btn btn-small btn-secondary {~D:Record.CurrentClass~}" href="{~D:Record.Href~}">{~D:Record.Label~}</a>`
+        }, {
+          Hash: 'DataBeacon-RecordBrowser-PaginationEllipsis',
+          Template: `<span class="databeacon-records-pagination-ellipsis">…</span>`
         }, {
           Hash: 'DataBeacon-RecordBrowser-TableOption',
           Template: `<option value="{~D:Record.TableName~}" {~D:Record.SelectedAttr~}>{~D:Record.TableName~}</option>`
@@ -10382,31 +10723,69 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           }
           let tmpStart = this._clampStart(tmpBrowser.CursorStart);
           let tmpSize = this._clampSize(tmpBrowser.PageSize);
-          tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize);
+          tmpProvider.loadRecords(tmpTable, tmpStart, tmpSize, tmpBrowser.FilterString || '');
         }
         _pagePrev() {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
-          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
-          let tmpTable = this.pict.AppData.SelectedTableName;
-          if (!tmpTable || tmpBrowser.PrevDisabled) {
-            return;
-          }
-          let tmpStart = this._clampStart(tmpBrowser.CursorStart);
-          let tmpSize = this._clampSize(tmpBrowser.PageSize);
-          this.pict.AppData.RecordBrowser.CursorStart = Math.max(0, tmpStart - tmpSize);
-          tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+          this._pageStep(-1);
         }
         _pageNext() {
-          let tmpProvider = this.pict.providers.DataBeaconProvider;
+          this._pageStep(+1);
+        }
+        _pageStep(pDir) {
           let tmpBrowser = this.pict.AppData.RecordBrowser || {};
           let tmpTable = this.pict.AppData.SelectedTableName;
-          if (!tmpTable || tmpBrowser.NextDisabled) {
+          if (!tmpTable) {
             return;
           }
-          let tmpStart = this._clampStart(tmpBrowser.CursorStart);
           let tmpSize = this._clampSize(tmpBrowser.PageSize);
-          this.pict.AppData.RecordBrowser.CursorStart = tmpStart + tmpSize;
-          tmpProvider.loadRecords(tmpTable, this.pict.AppData.RecordBrowser.CursorStart, tmpSize);
+          let tmpCurrent = this._clampStart(tmpBrowser.CursorStart);
+          let tmpTotal = typeof tmpBrowser.TotalCount === 'number' && tmpBrowser.TotalCount > 0 ? tmpBrowser.TotalCount : Infinity;
+          let tmpMaxStart = tmpTotal === Infinity ? Infinity : Math.max(0, tmpTotal - 1);
+          let tmpNext = Math.min(tmpMaxStart, Math.max(0, tmpCurrent + pDir * tmpSize));
+          this.pict.AppData.RecordBrowser.CursorStart = tmpNext;
+          this.pict.AppData.RecordBrowser.Page = this._pageFromStart(tmpNext, tmpSize);
+          this.pict.providers.DataBeaconProvider.loadRecords(tmpTable, tmpNext, tmpSize, tmpBrowser.FilterString || '');
+        }
+        _goToPage(pPage) {
+          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          if (!tmpTable) {
+            return;
+          }
+          let tmpSize = this._clampSize(tmpBrowser.PageSize);
+          let tmpPage = parseInt(pPage, 10);
+          if (isNaN(tmpPage) || tmpPage < 1) {
+            tmpPage = 1;
+          }
+          let tmpStart = (tmpPage - 1) * tmpSize;
+          this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
+          this.pict.AppData.RecordBrowser.Page = tmpPage;
+          this.pict.providers.DataBeaconProvider.loadRecords(tmpTable, tmpStart, tmpSize, tmpBrowser.FilterString || '');
+        }
+        _applyFilter(pFilterString) {
+          if (!this.pict.AppData.RecordBrowser) {
+            this.pict.AppData.RecordBrowser = {};
+          }
+          this.pict.AppData.RecordBrowser.FilterString = (pFilterString || '').trim();
+          this.pict.AppData.RecordBrowser.CursorStart = 0;
+          this.pict.AppData.RecordBrowser.Page = 1;
+          // Kick a non-blocking count refresh then load the first page.
+          this._refreshTotalCount();
+          this._loadCurrent();
+        }
+        _clearFilter() {
+          this._applyFilter('');
+        }
+        _refreshTotalCount() {
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          if (!tmpTable) {
+            return;
+          }
+          let tmpFilter = this.pict.AppData.RecordBrowser && this.pict.AppData.RecordBrowser.FilterString || '';
+          let tmpProv = this.pict.providers.DataBeaconProvider;
+          if (tmpProv && typeof tmpProv.loadRecordCount === 'function') {
+            tmpProv.loadRecordCount(tmpTable, tmpFilter);
+          }
         }
         _exportRecords(pFormat) {
           let tmpBrowser = this.pict.AppData.RecordBrowser || {};
@@ -10415,15 +10794,73 @@ body[data-theme="sgi"][data-mode-effective="dark"]
           let tmpSize = this._clampSize(tmpBrowser.PageSize);
           this._export(pFormat, tmpTable, tmpStart, tmpSize);
         }
+        _exportAllRecords(pFormat) {
+          let tmpProv = this.pict.providers.DataBeaconProvider;
+          let tmpExport = this.pict.providers['DataBeacon-Export'];
+          let tmpModal = this.pict.views.PictSectionModal;
+          let tmpBrowser = this.pict.AppData.RecordBrowser || {};
+          let tmpTable = this.pict.AppData.SelectedTableName;
+          let tmpFilter = tmpBrowser.FilterString || '';
+          if (!tmpTable || !tmpExport || !tmpProv || typeof tmpProv.loadRecordsAll !== 'function') {
+            return;
+          }
+          if (tmpModal) {
+            tmpModal.toast('Fetching full record set for export…', {
+              type: 'info'
+            });
+          }
+          tmpProv.loadRecordsAll(tmpTable, tmpFilter, (pErr, pRows) => {
+            if (pErr || !Array.isArray(pRows)) {
+              if (tmpModal) {
+                tmpModal.toast(`Export fetch failed: ${pErr ? pErr.message : 'unknown'}`, {
+                  type: 'error'
+                });
+              }
+              return;
+            }
+            if (pRows.length === 0) {
+              if (tmpModal) {
+                tmpModal.toast('No records to export.', {
+                  type: 'warning'
+                });
+              }
+              return;
+            }
+            let tmpFilterSlug = this._filenameSlug(tmpFilter);
+            let tmpBaseName = tmpFilterSlug ? `${tmpTable}-all-filtered-${tmpFilterSlug}` : `${tmpTable}-all`;
+            let tmpKeyField = this._findGUIDField(tmpTable, pRows);
+            tmpExport.exportRows(pFormat, pRows, {
+              BaseName: tmpBaseName,
+              EntityName: tmpTable || 'Record',
+              KeyField: tmpKeyField
+            });
+          });
+        }
+        _filenameSlug(pFilterString) {
+          if (!pFilterString) {
+            return '';
+          }
+          return String(pFilterString).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+        }
+        _pageFromStart(pStart, pSize) {
+          let tmpStart = parseInt(pStart, 10) || 0;
+          let tmpSize = parseInt(pSize, 10) || 1;
+          return Math.floor(tmpStart / tmpSize) + 1;
+        }
         _selectTable(pTableName) {
           this.pict.AppData.SelectedTableName = pTableName || '';
           if (!this.pict.AppData.RecordBrowser) {
             this.pict.AppData.RecordBrowser = {};
           }
           this.pict.AppData.RecordBrowser.CursorStart = 0;
+          this.pict.AppData.RecordBrowser.Page = 1;
+          // Changing table invalidates any prior filter/count.
+          this.pict.AppData.RecordBrowser.FilterString = '';
+          this.pict.AppData.RecordBrowser.TotalCount = null;
           let tmpProv = this.pict.providers.DataBeaconProvider;
           if (pTableName && tmpProv) {
-            tmpProv.loadRecords(pTableName, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize));
+            this._refreshTotalCount();
+            tmpProv.loadRecords(pTableName, 0, this._clampSize(this.pict.AppData.RecordBrowser.PageSize), '');
           } else if (tmpProv && typeof tmpProv.refreshRecordBrowserViewData === 'function') {
             tmpProv.refreshRecordBrowserViewData();
             this.render();
@@ -10435,14 +10872,9 @@ body[data-theme="sgi"][data-mode-effective="dark"]
             this.pict.AppData.RecordBrowser = {};
           }
           this.pict.AppData.RecordBrowser.PageSize = tmpSize;
-          this._loadCurrent();
-        }
-        _setStart(pRawValue) {
-          let tmpStart = this._clampStart(pRawValue);
-          if (!this.pict.AppData.RecordBrowser) {
-            this.pict.AppData.RecordBrowser = {};
-          }
-          this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
+          // Recompute page 1 for consistency (current CursorStart may not align).
+          this.pict.AppData.RecordBrowser.CursorStart = 0;
+          this.pict.AppData.RecordBrowser.Page = 1;
           this._loadCurrent();
         }
         _export(pFormat, pTable, pStart, pSize) {

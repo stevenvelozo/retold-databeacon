@@ -302,6 +302,11 @@ class DataBeaconApplication extends libPictApplication
 		let tmpView = this.pict.views.RecordBrowser;
 		if (tmpView && typeof tmpView._exportRecords === 'function') { tmpView._exportRecords(pFormat); }
 	}
+	recordsExportAll(pFormat)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._exportAllRecords === 'function') { tmpView._exportAllRecords(pFormat); }
+	}
 	selectRecordsTable(pTableName)
 	{
 		let tmpView = this.pict.views.RecordBrowser;
@@ -312,10 +317,33 @@ class DataBeaconApplication extends libPictApplication
 		let tmpView = this.pict.views.RecordBrowser;
 		if (tmpView && typeof tmpView._setPageSize === 'function') { tmpView._setPageSize(pSize); }
 	}
-	changeRecordsStart(pStart)
+	goToRecordsPage(pPage)
 	{
 		let tmpView = this.pict.views.RecordBrowser;
-		if (tmpView && typeof tmpView._setStart === 'function') { tmpView._setStart(pStart); }
+		if (tmpView && typeof tmpView._goToPage === 'function') { tmpView._goToPage(pPage); }
+	}
+	applyRecordsFilter(pFilter)
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (!tmpView) { return; }
+		// If no value arg is supplied (the Apply button's route doesn't carry
+		// one; only the inline onchange does), read the filter input from the
+		// DOM at dispatch time so the user's last keystrokes are captured.
+		let tmpValue = (typeof pFilter === 'string') ? pFilter : this._domValue('#databeacon-records-filter');
+		if (typeof tmpView._applyFilter === 'function') { tmpView._applyFilter(tmpValue || ''); }
+	}
+	clearRecordsFilter()
+	{
+		let tmpView = this.pict.views.RecordBrowser;
+		if (tmpView && typeof tmpView._clearFilter === 'function') { tmpView._clearFilter(); }
+	}
+
+	_domValue(pSelector)
+	{
+		let tmpList = this.pict.ContentAssignment.getElement(pSelector);
+		if (!tmpList || tmpList.length === 0) { return ''; }
+		let tmpNode = (typeof tmpList.length === 'number' && !('value' in tmpList)) ? tmpList[0] : tmpList;
+		return tmpNode && 'value' in tmpNode ? tmpNode.value : '';
 	}
 
 	// ── Queries ─────────────────────────────────────────────────────────────

@@ -238,25 +238,36 @@ class DataBeaconProvider extends libPictProvider
 	// Records
 	// ================================================================
 
-	loadRecords(pTableName, pStart, pCap, fCallback)
+	loadRecords(pTableName, pStart, pCap, pFilterOrCallback, fCallback)
 	{
+		// Backwards-compatible signature: callers that pre-date filter support
+		// pass `(table, start, cap, fCallback)`.  New callers pass
+		// `(table, start, cap, filter, fCallback)`.
+		let tmpFilter = '';
+		let tmpCallback = fCallback;
+		if (typeof pFilterOrCallback === 'function') { tmpCallback = pFilterOrCallback; }
+		else if (typeof pFilterOrCallback === 'string') { tmpFilter = pFilterOrCallback.trim(); }
+
 		let tmpStart = this._toNonNegativeInt(pStart, 0);
 		let tmpCap = this._toPositiveInt(pCap, 50);
 
-		// Track the fetch intent so the view-data computation can decide the
-		// Prev/Next state + range label even if the response is empty.
 		if (!this.pict.AppData.RecordBrowser) this.pict.AppData.RecordBrowser = {};
 		this.pict.AppData.RecordBrowser.CursorStart = tmpStart;
 		this.pict.AppData.RecordBrowser.PageSize = tmpCap;
+		this.pict.AppData.RecordBrowser.FilterString = tmpFilter;
 
 		// Dynamic endpoints are namespaced under the connection's sanitized
-		// name (see DataBeacon-DynamicEndpointManager.js), e.g.
-		// /1.0/lab-mysql-seed-books/Books/0/50 rather than /1.0/Books/0/50.
-		// Without the prefix we'd hit a 404 even though SQL reads still work.
+		// name (see DataBeacon-DynamicEndpointManager.js).  Filtered reads
+		// route to /{Scope}s/FilteredTo/<filter>/<begin>/<cap>; unfiltered
+		// to /{Scope}s/<begin>/<cap>.  Filter values go in the URL per the
+		// meadow-endpoints convention (FBL expression, URL-encoded).
 		let tmpPrefix = this._routeHashForSelectedConnection();
 		let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+		let tmpPath = tmpFilter
+			? `${tmpPathBase}/${pTableName}s/FilteredTo/${encodeURIComponent(tmpFilter)}/${tmpStart}/${tmpCap}`
+			: `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`;
 
-		this._apiCall('GET', `${tmpPathBase}/${pTableName}s/${tmpStart}/${tmpCap}`, null,
+		this._apiCall('GET', tmpPath, null,
 			(pError, pData) =>
 			{
 				if (!pError && pData)
@@ -266,7 +277,69 @@ class DataBeaconProvider extends libPictProvider
 				}
 				this.refreshRecordBrowserViewData();
 				if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
-				if (fCallback) fCallback(pError, pData);
+				if (tmpCallback) tmpCallback(pError, pData);
+			});
+	}
+
+	/**
+	 * Non-blocking count fetch.  Updates AppData.RecordBrowser.TotalCount
+	 * and re-renders the RecordBrowser so the page strip + badge refresh
+	 * whenever the server answers.  Failures are swallowed (leaves
+	 * TotalCount null; UI falls back to the "no count, probe with Next"
+	 * behavior).
+	 */
+	loadRecordCount(pTableName, pFilter, fCallback)
+	{
+		if (!this.pict.AppData.RecordBrowser) { this.pict.AppData.RecordBrowser = {}; }
+		this.pict.AppData.RecordBrowser.TotalCount = null;
+		this.pict.AppData.RecordBrowser.CountIsLoading = true;
+
+		let tmpPrefix = this._routeHashForSelectedConnection();
+		let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+		let tmpFilter = (pFilter || '').trim();
+		let tmpPath = tmpFilter
+			? `${tmpPathBase}/${pTableName}s/Count/FilteredTo/${encodeURIComponent(tmpFilter)}`
+			: `${tmpPathBase}/${pTableName}s/Count`;
+
+		this._apiCall('GET', tmpPath, null,
+			(pError, pData) =>
+			{
+				let tmpCount = null;
+				if (!pError && pData != null)
+				{
+					// meadow-endpoints returns { Count: N } or just N.
+					if (typeof pData === 'number') { tmpCount = pData; }
+					else if (typeof pData === 'object' && typeof pData.Count === 'number') { tmpCount = pData.Count; }
+				}
+				this.pict.AppData.RecordBrowser.TotalCount = tmpCount;
+				this.pict.AppData.RecordBrowser.CountIsLoading = false;
+				this.refreshRecordBrowserViewData();
+				if (this.pict.views.RecordBrowser) this.pict.views.RecordBrowser.render();
+				if (fCallback) fCallback(pError, tmpCount);
+			});
+	}
+
+	/**
+	 * Full-set fetch for export.  Hits the unpaginated endpoint (no begin/cap)
+	 * which meadow-endpoints exposes for filtered reads.  For unfiltered we
+	 * fall back to a large single page -- servers should cap this themselves
+	 * but callers should treat it as "up to the server's hard limit" rather
+	 * than a guaranteed full enumeration of million-row tables.
+	 */
+	loadRecordsAll(pTableName, pFilter, fCallback)
+	{
+		let tmpPrefix = this._routeHashForSelectedConnection();
+		let tmpPathBase = tmpPrefix ? `/1.0/${tmpPrefix}` : '/1.0';
+		let tmpFilter = (pFilter || '').trim();
+		let tmpPath = tmpFilter
+			? `${tmpPathBase}/${pTableName}s/FilteredTo/${encodeURIComponent(tmpFilter)}`
+			: `${tmpPathBase}/${pTableName}s/0/100000`;
+		this._apiCall('GET', tmpPath, null,
+			(pError, pData) =>
+			{
+				if (pError) { return fCallback(pError); }
+				let tmpRows = Array.isArray(pData) ? pData : (pData && pData.Records) || [];
+				return fCallback(null, tmpRows);
 			});
 	}
 
@@ -470,6 +543,9 @@ class DataBeaconProvider extends libPictProvider
 		let tmpPrev = this.pict.AppData.RecordBrowser || {};
 		let tmpCursorStart = this._toNonNegativeInt(tmpPrev.CursorStart, 0);
 		let tmpPageSize = this._toPositiveInt(tmpPrev.PageSize, 50);
+		let tmpFilter = (typeof tmpPrev.FilterString === 'string') ? tmpPrev.FilterString : '';
+		let tmpTotalCount = (typeof tmpPrev.TotalCount === 'number') ? tmpPrev.TotalCount : null;
+		let tmpCountIsLoading = !!tmpPrev.CountIsLoading;
 
 		let tmpTableOptions = [];
 		for (let i = 0; i < tmpEndpoints.length; i++)
@@ -506,18 +582,63 @@ class DataBeaconProvider extends libPictProvider
 			}
 		}
 
-		let tmpPrevDisabled = !tmpSelectedTable || tmpCursorStart === 0;
-		// "Probably more pages" when the server returned a full page. An
-		// exactly-full last page over-counts by one page and shows an empty
-		// Next; that's an acceptable trade for not needing a COUNT(*) call.
-		let tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize;
+		let tmpCurrentPage = Math.floor(tmpCursorStart / tmpPageSize) + 1;
+		let tmpPageCount = (tmpTotalCount === null || tmpTotalCount <= 0) ? 0 : Math.max(1, Math.ceil(tmpTotalCount / tmpPageSize));
+
+		// Prev/Next:
+		//   With a count known: both bounded by the count-derived page range.
+		//   Without a count: fall back to probe-next-if-page-was-full heuristic.
+		let tmpPrevDisabled = !tmpSelectedTable || tmpCurrentPage <= 1;
+		let tmpNextDisabled;
+		if (tmpPageCount > 0) { tmpNextDisabled = !tmpSelectedTable || tmpCurrentPage >= tmpPageCount; }
+		else                  { tmpNextDisabled = !tmpSelectedTable || tmpFetched < tmpPageSize; }
 
 		let tmpRangeLabel;
-		if (!tmpSelectedTable) tmpRangeLabel = '';
-		else if (tmpFetched === 0) tmpRangeLabel = `No records at start ${tmpCursorStart}.`;
-		else tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpCursorStart + tmpFetched} · Page size ${tmpPageSize}`;
+		if (!tmpSelectedTable)
+		{
+			tmpRangeLabel = '';
+		}
+		else if (tmpFetched === 0)
+		{
+			tmpRangeLabel = tmpFilter
+				? `No records match the current filter.`
+				: `No records at start ${tmpCursorStart}.`;
+		}
+		else
+		{
+			let tmpRangeEnd = tmpCursorStart + tmpFetched;
+			tmpRangeLabel = `Showing records ${tmpCursorStart + 1}–${tmpRangeEnd} · Page size ${tmpPageSize}`;
+			if (tmpPageCount > 0) { tmpRangeLabel += ` · Page ${tmpCurrentPage} of ${tmpPageCount}`; }
+		}
+
+		// Label for the "Export all" action and the count badge.  Phrased as
+		// "N filtered records" or "N records" so the user can see the full
+		// scope of the download before clicking.
+		let tmpTotalCountLabel = '';
+		let tmpFullExportLabel = 'records';
+		if (tmpCountIsLoading)
+		{
+			tmpTotalCountLabel = 'counting…';
+			tmpFullExportLabel = tmpFilter ? 'filtered records (counting…)' : 'records (counting…)';
+		}
+		else if (tmpTotalCount !== null)
+		{
+			tmpTotalCountLabel = `${tmpTotalCount.toLocaleString()} total`;
+			tmpFullExportLabel = tmpFilter
+				? `${tmpTotalCount.toLocaleString()} filtered records`
+				: `${tmpTotalCount.toLocaleString()} records`;
+		}
+
+		// Route-href builders.  Emitting the full hash URL in AppData means
+		// the template can bind {~D:...Href~} directly without computing paths.
+		let tmpHrefBase = '#/records/page/';
+		let tmpPrevHref = tmpCurrentPage > 1 ? `${tmpHrefBase}${tmpCurrentPage - 1}` : `${tmpHrefBase}${tmpCurrentPage}`;
+		let tmpNextHref = (tmpPageCount === 0 || tmpCurrentPage < tmpPageCount) ? `${tmpHrefBase}${tmpCurrentPage + 1}` : `${tmpHrefBase}${tmpCurrentPage}`;
+
+		let tmpPageLinks = this._buildPageLinks(tmpCurrentPage, tmpPageCount, tmpHrefBase);
 
 		let tmpLoadDisabled = !tmpSelectedTable;
+		let tmpHasTotalCount = (tmpTotalCount !== null) || tmpCountIsLoading;
 		this.pict.AppData.RecordBrowser =
 		{
 			TableOptions: tmpTableOptions,
@@ -526,6 +647,19 @@ class DataBeaconProvider extends libPictProvider
 			TableName: tmpSelectedTable,
 			CursorStart: tmpCursorStart,
 			PageSize: tmpPageSize,
+			Page: tmpCurrentPage,
+			PageCount: tmpPageCount,
+			PageLinks: tmpPageLinks,
+			ShowPagination: tmpPageCount > 1 || (tmpPageCount === 0 && (tmpCurrentPage > 1 || !tmpNextDisabled)),
+			PrevHref: tmpPrevHref,
+			NextHref: tmpNextHref,
+			FilterString: tmpFilter,
+			FilterClearClass: tmpFilter ? '' : 'disabled',
+			TotalCount: tmpTotalCount,
+			TotalCountLabel: tmpTotalCountLabel,
+			HasTotalCount: tmpHasTotalCount,
+			FullExportLabel: tmpFullExportLabel,
+			CountIsLoading: tmpCountIsLoading,
 			PrevDisabled: tmpPrevDisabled,
 			NextDisabled: tmpNextDisabled,
 			LoadDisabled: tmpLoadDisabled,
@@ -540,6 +674,57 @@ class DataBeaconProvider extends libPictProvider
 			ColumnList: tmpColumnList,
 			Rows: tmpRows
 		};
+	}
+
+	/**
+	 * Produce a pagination record list for the template.
+	 *
+	 * Shape (each entry is one of):
+	 *   { Kind: 'link', Label, Href, CurrentClass }
+	 *   { Kind: 'ellipsis' }
+	 *
+	 * Elides middle pages for large sets so the strip stays compact:
+	 *   1  2  3  …  42  43  44  45  46  …  98  99  100    (when current=44)
+	 *
+	 * If PageCount is 0 (no count yet), returns an empty list; the template
+	 * falls back to Prev/Next-only navigation.
+	 */
+	_buildPageLinks(pCurrent, pPageCount, pHrefBase)
+	{
+		if (pPageCount <= 0) { return []; }
+
+		let tmpOut = [];
+		let tmpAdd = (pPage) =>
+		{
+			tmpOut.push(
+				{
+					Kind: 'link',
+					Label: String(pPage),
+					Href: `${pHrefBase}${pPage}`,
+					CurrentClass: (pPage === pCurrent) ? 'current' : ''
+				});
+		};
+		let tmpEllipsis = () => tmpOut.push({ Kind: 'ellipsis' });
+
+		if (pPageCount <= 9)
+		{
+			for (let i = 1; i <= pPageCount; i++) { tmpAdd(i); }
+			return tmpOut;
+		}
+
+		// Always show first two + last two + a window around the current page.
+		let tmpShown = new Set([1, 2, pPageCount - 1, pPageCount, pCurrent - 1, pCurrent, pCurrent + 1]);
+		// Clamp window to valid range.
+		let tmpSorted = Array.from(tmpShown).filter((n) => n >= 1 && n <= pPageCount).sort((a, b) => a - b);
+		let tmpPrev = 0;
+		for (let i = 0; i < tmpSorted.length; i++)
+		{
+			let tmpPg = tmpSorted[i];
+			if (tmpPg - tmpPrev > 1) { tmpEllipsis(); }
+			tmpAdd(tmpPg);
+			tmpPrev = tmpPg;
+		}
+		return tmpOut;
 	}
 
 	_buildPageSizeOptions(pCurrent)

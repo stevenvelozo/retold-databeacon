@@ -32,7 +32,11 @@
 		{ "path": "/records/prev",                  "template": "{~LV:Pict.PictApplication.recordsPrev()~}" },
 		{ "path": "/records/next",                  "template": "{~LV:Pict.PictApplication.recordsNext()~}" },
 		{ "path": "/records/load",                  "template": "{~LV:Pict.PictApplication.recordsLoad()~}" },
+		{ "path": "/records/page/:n",               "template": "{~LV:Pict.PictApplication.goToRecordsPage(Record.data.n)~}" },
+		{ "path": "/records/filter/apply",          "template": "{~LV:Pict.PictApplication.applyRecordsFilter()~}" },
+		{ "path": "/records/filter/clear",          "template": "{~LV:Pict.PictApplication.clearRecordsFilter()~}" },
 		{ "path": "/records/export/:format",        "template": "{~LV:Pict.PictApplication.recordsExport(Record.data.format)~}" },
+		{ "path": "/records/export-all/:format",    "template": "{~LV:Pict.PictApplication.recordsExportAll(Record.data.format)~}" },
 
 		{ "path": "/queries/execute",               "template": "{~LV:Pict.PictApplication.executeQuery()~}" },
 		{ "path": "/queries/save",                  "template": "{~LV:Pict.PictApplication.saveQueryFromPanel()~}" },
