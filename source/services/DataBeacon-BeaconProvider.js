@@ -12,7 +12,10 @@
  * @author Steven Velozo <steven@velozo.com>
  */
 const libFableServiceProviderBase = require('fable-serviceproviderbase');
-const { registerMeadowProxyCapability } = require('./DataBeacon-MeadowProxyProvider.js');
+const libMeadowProxyProvider = require('./DataBeacon-MeadowProxyProvider.js');
+const { registerMeadowProxyCapability, extendPathAllowlist, setAllowWrites, getActiveConfig } = libMeadowProxyProvider;
+const DataBeaconSchemaManager = require('./DataBeacon-SchemaManager.js');
+const { registerSchemaCapability } = DataBeaconSchemaManager;
 
 let libBeaconService = null;
 try
@@ -83,6 +86,45 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 				BindAddresses: pBeaconConfig.BindAddresses || []
 			});
 
+		// Register capabilities on the beacon-service. Extracted so
+		// in-process integration tests can stand up a beacon-service,
+		// register the same capability set, and exercise the handlers
+		// without going through the thin-client / WebSocket stack.
+		this._registerCapabilitiesOn(this._BeaconService, (pBeaconConfig && pBeaconConfig.MeadowProxy) || {});
+
+		// Enable the beacon
+		this._BeaconService.enable(
+			(pError) =>
+			{
+				if (pError)
+				{
+					this.log.error(`Error enabling DataBeacon beacon: ${pError}`);
+					return fCallback(pError);
+				}
+				this.log.info(`DataBeacon beacon connected to ${pBeaconConfig.ServerURL}`);
+				return fCallback(null);
+			});
+	}
+
+	/**
+	 * Register the standard databeacon capability set
+	 * (DataBeaconAccess, DataBeaconManagement, MeadowProxy,
+	 * DataBeaconSchema) on a given UltravisorBeacon service. Public so
+	 * tests can attach the same capabilities to their own beacon-service
+	 * instances without driving a real coordinator connection.
+	 *
+	 * @param {object} pBeaconService - An UltravisorBeacon instance.
+	 * @param {object} [pMeadowProxyOptions] - Forwarded to
+	 *   registerMeadowProxyCapability (PathAllowlist, AllowWrites, etc.).
+	 * @returns {object} The same beacon-service for chaining.
+	 */
+	registerCapabilitiesOn(pBeaconService, pMeadowProxyOptions)
+	{
+		return this._registerCapabilitiesOn(pBeaconService, pMeadowProxyOptions || {});
+	}
+
+	_registerCapabilitiesOn(pBeaconService, pMeadowProxyOptions)
+	{
 		let tmpFable = this.fable;
 		let tmpLog = this.log;
 
@@ -90,7 +132,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 		// Capability: DataBeaconAccess
 		// Read operations against the beacon's connected databases
 		// ---------------------------------------------------------
-		this._BeaconService.registerCapability(
+		pBeaconService.registerCapability(
 			{
 				Capability: 'DataBeaconAccess',
 				Name: 'DataBeaconAccessProvider',
@@ -239,7 +281,7 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 		// Capability: DataBeaconManagement
 		// Write/admin operations
 		// ---------------------------------------------------------
-		this._BeaconService.registerCapability(
+		pBeaconService.registerCapability(
 			{
 				Capability: 'DataBeaconManagement',
 				Name: 'DataBeaconManagementProvider',
@@ -288,7 +330,12 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 						{
 							let tmpSettings = pWorkItem.Settings || {};
 							tmpFable.DataBeaconDynamicEndpointManager.enableEndpoint(
-								tmpSettings.IDBeaconConnection, tmpSettings.TableName, fHandlerCallback);
+								tmpSettings.IDBeaconConnection, tmpSettings.TableName,
+								(pError, pResult) =>
+								{
+									if (pError) { return fHandlerCallback(pError); }
+									return fHandlerCallback(null, { Outputs: pResult || {}, Log: [] });
+								});
 						}
 					},
 					'DisableEndpoint':
@@ -303,7 +350,60 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 						{
 							let tmpSettings = pWorkItem.Settings || {};
 							tmpFable.DataBeaconDynamicEndpointManager.disableEndpoint(
-								tmpSettings.IDBeaconConnection, tmpSettings.TableName, fHandlerCallback);
+								tmpSettings.IDBeaconConnection, tmpSettings.TableName,
+								(pError, pResult) =>
+								{
+									if (pError) { return fHandlerCallback(pError); }
+									return fHandlerCallback(null, { Outputs: pResult || {}, Log: [] });
+								});
+						}
+					},
+					'UpdateProxyConfig':
+					{
+						// Mutates the live MeadowProxy capability's allowlist /
+						// write-gate. Used by ultravisor's persistence bridges
+						// to add their PascalCase /1.0/UV*/ routes before the
+						// first MeadowProxy.Request — the default allowlist
+						// is intentionally restrictive (lowercase-first) to
+						// keep mesh clients away from the databeacon's
+						// internal entities. See
+						// modules/apps/ultravisor/docs/features/persistence-via-databeacon.md
+						// for the bootstrap sequence.
+						Description: 'Update the MeadowProxy capability\'s runtime config (PathAllowlist, AllowWrites).',
+						SettingsSchema:
+						[
+							{ Name: 'PathAllowlist', DataType: 'Array',   Required: false },
+							{ Name: 'AllowWrites',   DataType: 'Boolean', Required: false }
+						],
+						Handler: function (pWorkItem, pContext, fHandlerCallback)
+						{
+							let tmpSettings = pWorkItem.Settings || {};
+							let tmpAdded = 0;
+							if (Array.isArray(tmpSettings.PathAllowlist))
+							{
+								let tmpBefore = (getActiveConfig() || {}).PathAllowlist || [];
+								let tmpLen = extendPathAllowlist(tmpSettings.PathAllowlist);
+								tmpAdded = Math.max(0, tmpLen - tmpBefore.length);
+							}
+							if (typeof tmpSettings.AllowWrites === 'boolean')
+							{
+								setAllowWrites(tmpSettings.AllowWrites);
+							}
+							let tmpActive = getActiveConfig();
+							if (!tmpActive)
+							{
+								return fHandlerCallback(new Error('UpdateProxyConfig: MeadowProxy capability is not registered on this beacon.'));
+							}
+							return fHandlerCallback(null,
+							{
+								Outputs:
+								{
+									Success: true,
+									PatternsAdded: tmpAdded,
+									ActiveConfig: tmpActive
+								},
+								Log: []
+							});
 						}
 					}
 				}
@@ -315,21 +415,26 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 		// so a client-mode databeacon can drive the entire meadow
 		// surface transparently through the ultravisor mesh.
 		// ---------------------------------------------------------
-		registerMeadowProxyCapability(this._BeaconService, tmpFable,
-			(pBeaconConfig && pBeaconConfig.MeadowProxy) || {});
+		registerMeadowProxyCapability(pBeaconService, tmpFable, pMeadowProxyOptions);
 
-		// Enable the beacon
-		this._BeaconService.enable(
-			(pError) =>
-			{
-				if (pError)
-				{
-					tmpLog.error(`Error enabling DataBeacon beacon: ${pError}`);
-					return fCallback(pError);
-				}
-				tmpLog.info(`DataBeacon beacon connected to ${pBeaconConfig.ServerURL}`);
-				return fCallback(null);
-			});
+		// ---------------------------------------------------------
+		// Capability: DataBeaconSchema
+		// Idempotent DDL — EnsureSchema / IntrospectSchema. Used by
+		// ultravisor's persistence bridges to bootstrap their tables
+		// (UVQueueWorkItem etc.) on the connected database. See
+		// modules/apps/ultravisor/docs/features/persistence-via-databeacon.md
+		// for the cross-module plan. Session 2 generalizes the SQLite
+		// path via meadow's per-engine Schema-<engine> services.
+		// ---------------------------------------------------------
+		tmpFable.addServiceTypeIfNotExists('DataBeaconSchemaManager', DataBeaconSchemaManager);
+		if (!tmpFable.DataBeaconSchemaManager)
+		{
+			let tmpMgr = tmpFable.instantiateServiceProvider('DataBeaconSchemaManager', {});
+			tmpFable.DataBeaconSchemaManager = tmpMgr;
+		}
+		registerSchemaCapability(pBeaconService, tmpFable);
+
+		return pBeaconService;
 	}
 
 	/**

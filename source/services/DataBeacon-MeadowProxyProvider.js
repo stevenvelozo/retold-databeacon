@@ -140,6 +140,21 @@ const loopbackRequest = function (pOptions, fCallback)
 };
 
 /**
+ * Stash for runtime config mutations. The MeadowProxy capability is
+ * registered once (with a closed-over `tmpOptions` and compiled
+ * allowlist), but operators sometimes need to extend the allowlist
+ * after the fact — e.g. when ultravisor's persistence bridges arrive
+ * with their PascalCase `/1.0/UV...` paths. Updates routed through
+ * `DataBeaconManagement.UpdateProxyConfig` mutate the entry stored
+ * here, which the closure consults on every Request.
+ *
+ * Single-beacon scope today: one databeacon = one MeadowProxy entry.
+ * If we ever support multiple distinct MeadowProxy capabilities on
+ * one beacon, this will need to key by capability name.
+ */
+let _ActiveMeadowProxyConfig = null;
+
+/**
  * Register the MeadowProxy capability on an existing beacon service.
  *
  * @param {object} pBeaconService - An enabled ultravisor-beacon service
@@ -149,7 +164,15 @@ const loopbackRequest = function (pOptions, fCallback)
 const registerMeadowProxyCapability = function (pBeaconService, pFable, pOptions)
 {
 	let tmpOptions = Object.assign({}, DEFAULT_OPTIONS, pOptions || {});
-	let tmpCompiledAllowlist = compilePathAllowlist(tmpOptions.PathAllowlist);
+	// State the closure consults on each Request. Mutated through
+	// `extendPathAllowlist` / `setPathAllowlist` so allowlist updates
+	// from the lab take effect without re-registering the capability.
+	let tmpRuntime =
+		{
+			compiledAllowlist: compilePathAllowlist(tmpOptions.PathAllowlist),
+			allowWrites: tmpOptions.AllowWrites
+		};
+	_ActiveMeadowProxyConfig = tmpRuntime;
 	let tmpLog = pFable.log;
 
 	pBeaconService.registerCapability(
@@ -182,14 +205,14 @@ const registerMeadowProxyCapability = function (pBeaconService, pFable, pOptions
 						{
 							return fHandlerCallback(new Error('MeadowProxy: Method is required.'));
 						}
-						if (!tmpOptions.AllowWrites && tmpMethod !== 'GET' && tmpMethod !== 'HEAD')
+						if (!tmpRuntime.allowWrites && tmpMethod !== 'GET' && tmpMethod !== 'HEAD')
 						{
 							if (tmpLog) { tmpLog.warn(`MeadowProxy: rejected ${tmpMethod} ${tmpPath} (writes disabled)`); }
 							return fHandlerCallback(new Error('MeadowProxy: writes are disabled on this beacon.'));
 						}
 
 						// Validate path
-						if (!isPathAllowed(tmpPath, tmpCompiledAllowlist))
+						if (!isPathAllowed(tmpPath, tmpRuntime.compiledAllowlist))
 						{
 							if (tmpLog) { tmpLog.warn(`MeadowProxy: rejected ${tmpMethod} ${tmpPath} (not allowlisted)`); }
 							return fHandlerCallback(new Error('MeadowProxy: path is not in the allowlist.'));
@@ -242,13 +265,89 @@ const registerMeadowProxyCapability = function (pBeaconService, pFable, pOptions
 		});
 };
 
+/**
+ * Extend the active MeadowProxy capability's path allowlist at runtime.
+ * Each entry in `pPatterns` may be a RegExp or a string regex source;
+ * strings are compiled here. Patterns already present (by source) are
+ * skipped so repeat calls are idempotent. Returns the new compiled
+ * allowlist length, or 0 if no MeadowProxy capability has been
+ * registered yet.
+ */
+const extendPathAllowlist = function (pPatterns)
+{
+	if (!_ActiveMeadowProxyConfig) { return 0; }
+	if (!Array.isArray(pPatterns) || pPatterns.length === 0)
+	{
+		return _ActiveMeadowProxyConfig.compiledAllowlist.length;
+	}
+	let tmpExisting = _ActiveMeadowProxyConfig.compiledAllowlist;
+	let tmpExistingSources = new Set(tmpExisting.map((pR) => pR.source));
+	let tmpNew = compilePathAllowlist(pPatterns);
+	for (let i = 0; i < tmpNew.length; i++)
+	{
+		if (!tmpExistingSources.has(tmpNew[i].source))
+		{
+			tmpExisting.push(tmpNew[i]);
+		}
+	}
+	return tmpExisting.length;
+};
+
+/**
+ * Replace the active MeadowProxy allowlist outright. Use sparingly —
+ * typical lab use is `extendPathAllowlist`.
+ */
+const setPathAllowlist = function (pPatterns)
+{
+	if (!_ActiveMeadowProxyConfig) { return 0; }
+	_ActiveMeadowProxyConfig.compiledAllowlist = compilePathAllowlist(pPatterns);
+	return _ActiveMeadowProxyConfig.compiledAllowlist.length;
+};
+
+/**
+ * Toggle write-allow at runtime without re-registering the capability.
+ */
+const setAllowWrites = function (pAllow)
+{
+	if (!_ActiveMeadowProxyConfig) { return false; }
+	_ActiveMeadowProxyConfig.allowWrites = !!pAllow;
+	return _ActiveMeadowProxyConfig.allowWrites;
+};
+
+/**
+ * Snapshot of the active config — handy for tests and the
+ * UpdateProxyConfig action's response payload.
+ */
+const getActiveConfig = function ()
+{
+	if (!_ActiveMeadowProxyConfig) { return null; }
+	return {
+		AllowWrites: _ActiveMeadowProxyConfig.allowWrites,
+		PathAllowlist: _ActiveMeadowProxyConfig.compiledAllowlist.map((pR) => pR.source)
+	};
+};
+
+/**
+ * Test-only helper. Drops the registry entry so a fresh
+ * `registerMeadowProxyCapability` starts cleanly.
+ */
+const _resetActiveConfig = function ()
+{
+	_ActiveMeadowProxyConfig = null;
+};
+
 module.exports =
 	{
 		registerMeadowProxyCapability: registerMeadowProxyCapability,
+		extendPathAllowlist: extendPathAllowlist,
+		setPathAllowlist: setPathAllowlist,
+		setAllowWrites: setAllowWrites,
+		getActiveConfig: getActiveConfig,
 		// Exported for unit tests:
 		_compilePathAllowlist: compilePathAllowlist,
 		_isPathAllowed: isPathAllowed,
 		_loopbackRequest: loopbackRequest,
+		_resetActiveConfig: _resetActiveConfig,
 		DEFAULT_PATH_ALLOWLIST: DEFAULT_PATH_ALLOWLIST,
 		DEFAULT_OPTIONS: DEFAULT_OPTIONS
 	};
