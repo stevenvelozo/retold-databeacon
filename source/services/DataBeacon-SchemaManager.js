@@ -36,32 +36,41 @@
  *     ]
  *   }
  *
- * Engine generalization (Session 2)
+ * Engine generalization (Session 4)
  * =================================
  * Every meadow connector (sqlite / mysql / mssql / postgresql) exposes
  * a `schemaProvider` getter that returns its `Meadow-Schema-<engine>`
- * service. Those services accept a meadow-shaped descriptor
- * (`{ Tables: [{ TableName, Columns: [{ Column, DataType, Size? }], Indices?: [...] }] }`)
- * and run engine-specific DDL via `createTables` + `createAllIndices`.
+ * service. Fresh-bootstrap (CREATE TABLE / CREATE INDEX) delegates to
+ * the connector's idempotent `createTables` + `createAllIndices`.
  *
- * This manager translates our schema descriptor (Scope/Schema/Indexes,
- * with high-level Type values like AutoIdentity / Integer / Float /
- * Deleted / CreateDate) into the meadow shape, then delegates table
- * creation and index creation to the connector. Both connector calls
- * are idempotent (CREATE [TABLE|INDEX] IF NOT EXISTS, or equivalent
- * INFORMATION_SCHEMA-gated paths on engines that lack IF NOT EXISTS).
- *
- * Forward-only ADD COLUMN migration uses the connector's
- * `introspectTableColumns` to detect missing columns. SQLite ADD COLUMN
- * uses better-sqlite3's synchronous .exec() against the live handle;
- * MySQL/MSSQL/Postgres ADD COLUMN is deferred to Session 4 (see the
- * persistence-via-databeacon plan) — for those engines we currently
- * surface a Note when the descriptor adds columns to an existing table.
+ * Forward-only ADD COLUMN now flows through `meadow-migrationmanager`'s
+ * SchemaIntrospector → SchemaDiff → MigrationGenerator pipeline, with a
+ * forward-only filter applied to the diff before the generator runs. The
+ * resulting ALTER statements are executed via the connector's underlying
+ * pool / handle (better-sqlite3 .exec() for SQLite; .query() for the
+ * other three engines). The four MM services live on an isolated Pict
+ * context constructed in this manager's constructor; no other MM
+ * services are loaded.
  *
  * @author Steven Velozo <steven@velozo.com>
  * @license MIT
  */
 const libFableServiceProviderBase = require('fable-serviceproviderbase');
+const libMeadowMigrationManager = require('meadow-migrationmanager');
+
+// Map our connector type ('sqlite' / 'mysql' / 'mssql' / 'postgresql')
+// to the engine label meadow-migrationmanager's MigrationGenerator
+// switches on ('SQLite' / 'MySQL' / 'MSSQL' / 'PostgreSQL'). Anything
+// else surfaces as a clear error in ensureSchema; we don't have ALTER
+// coverage for it.
+const ENGINE_TO_MM_NAME =
+{
+	sqlite:     'SQLite',
+	mysql:      'MySQL',
+	mssql:      'MSSQL',
+	postgresql: 'PostgreSQL',
+	postgres:   'PostgreSQL'
+};
 
 // Map our descriptor's high-level Type values onto the lower-level
 // meadow connector DataType vocabulary used by `Meadow-Schema-<engine>`.
@@ -93,6 +102,31 @@ class DataBeaconSchemaManager extends libFableServiceProviderBase
 	{
 		super(pFable, pOptions, pServiceHash);
 		this.serviceType = 'DataBeaconSchemaManager';
+
+		// Embed an isolated meadow-migrationmanager Pict context, then
+		// instantiate only the four services we use:
+		//   - SchemaIntrospector   reads the live database into the
+		//                          DDL-level shape SchemaDiff expects
+		//                          (Tables[]/Columns[]/Indices[]).
+		//   - SchemaDiff           compares introspected vs descriptor.
+		//   - MigrationGenerator   converts the diff to engine-specific
+		//                          ALTER / CREATE statements.
+		//   - SchemaDeployer       used as a convenience for new tables
+		//                          (delegates to createTable +
+		//                          createIndices on the schemaProvider).
+		// Everything else MM ships (TUI, REST, WebUI, SchemaLibrary,
+		// FlowDataBuilder, ConnectionLibrary, MeadowPackageGenerator)
+		// is deliberately not instantiated; their transitive deps don't
+		// load until you ask for them.
+		this._MM = new libMeadowMigrationManager(
+			{
+				Product: 'DataBeacon-SchemaManager',
+				LogStreams: (pFable.settings && pFable.settings.LogStreams) || [{ streamtype: 'console', level: 'warn' }]
+			});
+		this._SchemaIntrospector = this._MM.instantiateServiceProvider('SchemaIntrospector');
+		this._SchemaDiff         = this._MM.instantiateServiceProvider('SchemaDiff');
+		this._MigrationGenerator = this._MM.instantiateServiceProvider('MigrationGenerator');
+		this._SchemaDeployer     = this._MM.instantiateServiceProvider('SchemaDeployer');
 	}
 
 	/**
@@ -150,6 +184,14 @@ class DataBeaconSchemaManager extends libFableServiceProviderBase
 			return fCallback(pTransErr);
 		}
 
+		let tmpMMEngine = ENGINE_TO_MM_NAME[tmpEngine];
+		if (!tmpMMEngine)
+		{
+			return fCallback(new Error(
+				`EnsureSchema: engine [${tmpEngine}] is not supported by meadow-migrationmanager — ` +
+				`only sqlite / mysql / mssql / postgresql are wired.`));
+		}
+
 		let tmpResult =
 		{
 			Success: true,
@@ -158,56 +200,301 @@ class DataBeaconSchemaManager extends libFableServiceProviderBase
 			TablesCreated: [],
 			ColumnsAdded: [],
 			IndicesCreated: [],
+			MigrationStatements: [],
+			SkippedDestructive: [],
 			Notes: []
 		};
 
-		// 1. Snapshot which tables already exist so the result can report
-		//    truly-new tables vs. no-ops. Connector's listTables strips
-		//    sqlite_* / pg_catalog noise for us.
-		tmpSchemaService.listTables((pListErr, pExistingTables) =>
+		// 1. Introspect the live database into the same shape SchemaDiff
+		//    expects on both sides. SchemaIntrospector is engine-agnostic;
+		//    it delegates to the connector's introspectDatabaseSchema.
+		this._SchemaIntrospector.introspectDatabase(tmpSchemaService, (pIntErr, pIntrospected) =>
 		{
-			if (pListErr) { return fCallback(pListErr); }
-			let tmpExistingSet = new Set(pExistingTables || []);
-
-			// 2. createTables — idempotent on every supported engine.
-			tmpSchemaService.createTables(tmpMeadowSchema, (pCreateErr) =>
+			if (pIntErr) { return fCallback(pIntErr); }
+			let tmpIntrospected = pIntrospected || { Tables: [] };
+			let tmpExistingTableNames = new Set();
+			let tmpIntroTables = Array.isArray(tmpIntrospected.Tables) ? tmpIntrospected.Tables : [];
+			for (let i = 0; i < tmpIntroTables.length; i++)
 			{
-				if (pCreateErr) { return fCallback(pCreateErr); }
-				for (let i = 0; i < tmpMeadowSchema.Tables.length; i++)
+				if (tmpIntroTables[i] && tmpIntroTables[i].TableName)
 				{
-					let tmpName = tmpMeadowSchema.Tables[i].TableName;
-					if (!tmpExistingSet.has(tmpName))
-					{
-						tmpResult.TablesCreated.push(tmpName);
-					}
+					tmpExistingTableNames.add(tmpIntroTables[i].TableName);
 				}
+			}
 
-				// 3. Forward-only ADD COLUMN for tables that already
-				//    existed before this call.
-				this._forwardMigrateColumns(tmpConn, tmpEngine, tmpSchemaService,
-					tmpMeadowSchema, tmpExistingSet, tmpResult,
-					(pMigErr) =>
-					{
-						if (pMigErr) { return fCallback(pMigErr); }
+			// 2. Diff introspected (source) against descriptor (target).
+			//    The result's TablesAdded entries are brand-new tables;
+			//    TablesModified.ColumnsAdded entries are forward-only
+			//    ALTER candidates we want to keep; ColumnsRemoved /
+			//    ColumnsModified / TablesRemoved are destructive and get
+			//    filtered out below.
+			let tmpDiff;
+			try
+			{
+				tmpDiff = this._SchemaDiff.diffSchemas(tmpIntrospected, tmpMeadowSchema);
+			}
+			catch (pDiffErr)
+			{
+				return fCallback(pDiffErr);
+			}
 
-						// 4. createAllIndices — idempotent on every
-						//    supported engine.
-						tmpSchemaService.createAllIndices(tmpMeadowSchema, (pIdxErr) =>
-						{
-							if (pIdxErr) { return fCallback(pIdxErr); }
-							for (let i = 0; i < tmpMeadowSchema.Tables.length; i++)
-							{
-								let tmpIdxs = tmpMeadowSchema.Tables[i].Indices || [];
-								for (let j = 0; j < tmpIdxs.length; j++)
-								{
-									tmpResult.IndicesCreated.push(tmpIdxs[j].Name);
-								}
-							}
-							return fCallback(null, tmpResult);
-						});
-					});
+			// 3. Forward-only filter. Drop everything destructive from
+			//    the diff before MigrationGenerator runs. We log the
+			//    dropped entries on the result so an operator who really
+			//    wants the change can see what they need to issue
+			//    out-of-band.
+			let tmpFiltered = this._forwardOnlyFilter(tmpDiff, tmpResult);
+
+			// 4. Track what would-be-created so the result reports
+			//    TablesCreated / ColumnsAdded / IndicesCreated even
+			//    though we'll execute via SchemaDeployer / engine pool.
+			for (let i = 0; i < tmpFiltered.TablesAdded.length; i++)
+			{
+				let tmpAddedTbl = tmpFiltered.TablesAdded[i];
+				if (tmpAddedTbl && tmpAddedTbl.TableName)
+				{
+					tmpResult.TablesCreated.push(tmpAddedTbl.TableName);
+				}
+			}
+			for (let i = 0; i < tmpFiltered.TablesModified.length; i++)
+			{
+				let tmpMod = tmpFiltered.TablesModified[i];
+				let tmpAddedCols = Array.isArray(tmpMod.ColumnsAdded) ? tmpMod.ColumnsAdded : [];
+				for (let j = 0; j < tmpAddedCols.length; j++)
+				{
+					tmpResult.ColumnsAdded.push(`${tmpMod.TableName}.${tmpAddedCols[j].Column}`);
+				}
+				let tmpAddedIdxs = Array.isArray(tmpMod.IndicesAdded) ? tmpMod.IndicesAdded : [];
+				for (let j = 0; j < tmpAddedIdxs.length; j++)
+				{
+					tmpResult.IndicesCreated.push(tmpAddedIdxs[j].Name);
+				}
+			}
+
+			// 5. For brand-new tables we deploy via the connector's
+			//    schemaProvider — its createTables handles index creation
+			//    too, and its DDL is hand-written per engine (handles
+			//    quoting / IF NOT EXISTS quirks better than the diff
+			//    generator's CREATE TABLE output).
+			let fApplyAlters = () =>
+			{
+				let tmpStatements = this._MigrationGenerator.generateMigrationStatements(
+					{ TablesAdded: [], TablesRemoved: [], TablesModified: tmpFiltered.TablesModified },
+					tmpMMEngine);
+				tmpResult.MigrationStatements = tmpStatements.slice();
+				if (tmpStatements.length === 0)
+				{
+					return this._createIndicesForExistingTables(tmpSchemaService, tmpMeadowSchema, tmpExistingTableNames, tmpResult, fCallback);
+				}
+				this._executeStatements(tmpConn, tmpEngine, tmpStatements, (pExecErr) =>
+				{
+					if (pExecErr) { return fCallback(pExecErr); }
+					return this._createIndicesForExistingTables(tmpSchemaService, tmpMeadowSchema, tmpExistingTableNames, tmpResult, fCallback);
+				});
+			};
+
+			if (tmpFiltered.TablesAdded.length === 0)
+			{
+				return fApplyAlters();
+			}
+
+			let tmpAddedTables = tmpFiltered.TablesAdded.map((pT) =>
+			{
+				// SchemaDiff returns the original target-table object; it
+				// includes the descriptor's Indices. SchemaDeployer.deployTable
+				// hands the same shape back to the connector's createTable +
+				// createIndices.
+				return pT;
 			});
+
+			let tmpDeployIdx = 0;
+			let fDeployNext = () =>
+			{
+				if (tmpDeployIdx >= tmpAddedTables.length) { return fApplyAlters(); }
+				let tmpTbl = tmpAddedTables[tmpDeployIdx++];
+				this._SchemaDeployer.deployTable(tmpSchemaService, tmpTbl, (pDeployErr) =>
+				{
+					if (pDeployErr) { return fCallback(pDeployErr); }
+					return fDeployNext();
+				});
+			};
+			fDeployNext();
 		});
+	}
+
+	/**
+	 * Drop destructive entries from the diff so EnsureSchema is forward-
+	 * only. Anything we drop gets logged on `pResult.SkippedDestructive`
+	 * so an operator can see what would have changed if the path
+	 * accepted destructive ops. Returns a fresh diff object — never
+	 * mutates the input.
+	 */
+	_forwardOnlyFilter(pDiff, pResult)
+	{
+		let tmpFiltered =
+		{
+			TablesAdded: Array.isArray(pDiff.TablesAdded) ? pDiff.TablesAdded.slice() : [],
+			TablesRemoved: [],
+			TablesModified: []
+		};
+		let tmpRemoved = Array.isArray(pDiff.TablesRemoved) ? pDiff.TablesRemoved : [];
+		for (let i = 0; i < tmpRemoved.length; i++)
+		{
+			let tmpName = tmpRemoved[i] && tmpRemoved[i].TableName;
+			if (tmpName)
+			{
+				pResult.SkippedDestructive.push(`drop-table:${tmpName}`);
+				pResult.Notes.push(`Skipped destructive: DROP TABLE ${tmpName} (forward-only).`);
+			}
+		}
+		let tmpModified = Array.isArray(pDiff.TablesModified) ? pDiff.TablesModified : [];
+		for (let i = 0; i < tmpModified.length; i++)
+		{
+			let tmpMod = tmpModified[i];
+			let tmpKept =
+			{
+				TableName: tmpMod.TableName,
+				ColumnsAdded: Array.isArray(tmpMod.ColumnsAdded) ? tmpMod.ColumnsAdded : [],
+				ColumnsRemoved: [],
+				ColumnsModified: [],
+				IndicesAdded: Array.isArray(tmpMod.IndicesAdded) ? tmpMod.IndicesAdded : [],
+				IndicesRemoved: [],
+				ForeignKeysAdded: Array.isArray(tmpMod.ForeignKeysAdded) ? tmpMod.ForeignKeysAdded : [],
+				ForeignKeysRemoved: []
+			};
+			let tmpColRem = Array.isArray(tmpMod.ColumnsRemoved) ? tmpMod.ColumnsRemoved : [];
+			for (let j = 0; j < tmpColRem.length; j++)
+			{
+				pResult.SkippedDestructive.push(`drop-column:${tmpMod.TableName}.${tmpColRem[j].Column}`);
+			}
+			let tmpColMod = Array.isArray(tmpMod.ColumnsModified) ? tmpMod.ColumnsModified : [];
+			for (let j = 0; j < tmpColMod.length; j++)
+			{
+				pResult.SkippedDestructive.push(`alter-column:${tmpMod.TableName}.${tmpColMod[j].Column}`);
+			}
+			let tmpIdxRem = Array.isArray(tmpMod.IndicesRemoved) ? tmpMod.IndicesRemoved : [];
+			for (let j = 0; j < tmpIdxRem.length; j++)
+			{
+				pResult.SkippedDestructive.push(`drop-index:${tmpIdxRem[j].Name}`);
+			}
+			if (tmpKept.ColumnsAdded.length > 0
+				|| tmpKept.IndicesAdded.length > 0
+				|| tmpKept.ForeignKeysAdded.length > 0)
+			{
+				tmpFiltered.TablesModified.push(tmpKept);
+			}
+		}
+		if (pResult.SkippedDestructive.length > 0)
+		{
+			pResult.Notes.push(`Forward-only filter dropped ${pResult.SkippedDestructive.length} destructive change(s); see SkippedDestructive for the list.`);
+		}
+		return tmpFiltered;
+	}
+
+	/**
+	 * After ALTERs land, we still want the connector's `createAllIndices`
+	 * to run for tables that already existed before this call — the
+	 * descriptor may have grown new indices that the SchemaDiff path
+	 * already captured, but indices on indexed Columns (DDL Indexed:true)
+	 * arrive via the connector's auto-derivation rather than the
+	 * descriptor's `Indexes` block. Idempotent on every engine; tables
+	 * that didn't exist before this call already had their indices
+	 * created via SchemaDeployer.deployTable.
+	 */
+	_createIndicesForExistingTables(pSchemaService, pMeadowSchema, pExistingTableNames, pResult, fCallback)
+	{
+		let tmpExistingSchema =
+		{
+			Tables: pMeadowSchema.Tables.filter((pT) => pExistingTableNames.has(pT.TableName))
+		};
+		if (tmpExistingSchema.Tables.length === 0)
+		{
+			return fCallback(null, pResult);
+		}
+		pSchemaService.createAllIndices(tmpExistingSchema, (pIdxErr) =>
+		{
+			if (pIdxErr) { return fCallback(pIdxErr); }
+			return fCallback(null, pResult);
+		});
+	}
+
+	/**
+	 * Execute MigrationGenerator output against the live connection.
+	 * SQLite uses better-sqlite3's synchronous `.exec()`; the other
+	 * three engines use the schema provider's `_ConnectionPool.query()`
+	 * (the same handle createTables / createAllIndices already use).
+	 * Ignores duplicate-column / already-exists errors so re-running
+	 * EnsureSchema after a partial migration stays idempotent.
+	 */
+	_executeStatements(pConn, pEngine, pStatements, fCallback)
+	{
+		if (!pStatements || pStatements.length === 0) { return fCallback(null); }
+		if (pEngine === 'sqlite')
+		{
+			let tmpDB = pConn.instance && pConn.instance._database;
+			if (!tmpDB || typeof tmpDB.exec !== 'function')
+			{
+				return fCallback(new Error('Forward-migration: SQLite handle has no .exec method.'));
+			}
+			for (let i = 0; i < pStatements.length; i++)
+			{
+				let tmpSql = pStatements[i];
+				if (this._isCommentOnly(tmpSql)) { continue; }
+				try { tmpDB.exec(tmpSql); }
+				catch (pErr)
+				{
+					if (this._isHarmlessAlterError(pErr.message || ''))
+					{
+						continue;
+					}
+					return fCallback(pErr);
+				}
+			}
+			return fCallback(null);
+		}
+		// Pool-based engines (mysql / mssql / postgresql). The
+		// schemaProvider holds the live pool reference.
+		let tmpSchema = pConn.instance && (pConn.instance.schemaProvider || pConn.instance._SchemaProvider);
+		let tmpPool = tmpSchema && tmpSchema._ConnectionPool;
+		if (!tmpPool || typeof tmpPool.query !== 'function')
+		{
+			return fCallback(new Error(`Forward-migration: engine [${pEngine}] connector has no _ConnectionPool.query.`));
+		}
+		let tmpIdx = 0;
+		let fNext = () =>
+		{
+			if (tmpIdx >= pStatements.length) { return fCallback(null); }
+			let tmpSql = pStatements[tmpIdx++];
+			if (this._isCommentOnly(tmpSql)) { return fNext(); }
+			tmpPool.query(tmpSql, (pErr) =>
+			{
+				if (pErr && !this._isHarmlessAlterError(pErr.message || ''))
+				{
+					return fCallback(pErr);
+				}
+				return fNext();
+			});
+		};
+		fNext();
+	}
+
+	_isCommentOnly(pSql)
+	{
+		if (!pSql) { return true; }
+		let tmpTrim = String(pSql).trim();
+		return tmpTrim.length === 0 || tmpTrim.indexOf('--') === 0;
+	}
+
+	_isHarmlessAlterError(pMessage)
+	{
+		// Engines tell us "already exists" / "duplicate column" in
+		// different ways. Treat any of these as a no-op so re-running
+		// after a partial migration stays idempotent.
+		let tmpLower = String(pMessage || '').toLowerCase();
+		return tmpLower.indexOf('duplicate column') >= 0
+			|| tmpLower.indexOf('already exists') >= 0
+			|| tmpLower.indexOf('duplicate key name') >= 0
+			|| (tmpLower.indexOf('column') >= 0 && tmpLower.indexOf('already') >= 0);
 	}
 
 	/**
@@ -400,128 +687,6 @@ class DataBeaconSchemaManager extends libFableServiceProviderBase
 		return tmpResult;
 	}
 
-	// ====================================================================
-	// Forward-only ADD COLUMN migration
-	// ====================================================================
-
-	/**
-	 * For each table that existed before createTables, diff descriptor
-	 * columns against the live database and add the missing ones. The
-	 * actual ALTER TABLE statement is engine-specific.
-	 */
-	_forwardMigrateColumns(pConn, pEngine, pSchemaService, pMeadowSchema, pPreExistingSet, pResult, fCallback)
-	{
-		let tmpToCheck = pMeadowSchema.Tables.filter((pT) => pPreExistingSet.has(pT.TableName));
-		if (tmpToCheck.length === 0) { return fCallback(null); }
-
-		let tmpAdvance = (pIdx) =>
-		{
-			if (pIdx >= tmpToCheck.length) { return fCallback(null); }
-			let tmpTable = tmpToCheck[pIdx];
-			pSchemaService.introspectTableColumns(tmpTable.TableName, (pErr, pCols) =>
-			{
-				if (pErr) { return fCallback(pErr); }
-				let tmpHave = new Set((pCols || []).map((pC) => pC.Column));
-				let tmpMissing = tmpTable.Columns.filter((pC) => !tmpHave.has(pC.Column) && pC.DataType !== 'ID');
-				if (tmpMissing.length === 0) { return tmpAdvance(pIdx + 1); }
-				this._addColumnsForTable(pConn, pEngine, tmpTable.TableName, tmpMissing, pResult, (pAddErr) =>
-				{
-					if (pAddErr) { return fCallback(pAddErr); }
-					return tmpAdvance(pIdx + 1);
-				});
-			});
-		};
-		tmpAdvance(0);
-	}
-
-	_addColumnsForTable(pConn, pEngine, pTableName, pColumns, pResult, fCallback)
-	{
-		// Today only SQLite has a runtime ALTER TABLE path here. The
-		// other engines have idempotent `createTables` (CREATE IF NOT
-		// EXISTS) so fresh-bootstrap is fine on all four engines, but
-		// a *changed* descriptor against an existing MySQL/Postgres/
-		// MSSQL schema needs ADD COLUMN — that's Session 4 work.
-		if (pEngine === 'sqlite')
-		{
-			try
-			{
-				this._addColumnsSqlite(pConn, pTableName, pColumns, pResult);
-				return fCallback(null);
-			}
-			catch (pErr) { return fCallback(pErr); }
-		}
-		pResult.Notes.push(
-			`forward-migration deferred: engine [${pEngine}] does not yet support ADD COLUMN ` +
-			`for ${pColumns.length} missing column(s) on ${pTableName} (Session 4).`);
-		return fCallback(null);
-	}
-
-	/**
-	 * SQLite ADD COLUMN — synchronous via better-sqlite3.
-	 * The connector's setDatabase() has already wired up `_Database` on
-	 * the schemaProvider, but for ALTER TABLE we go through the same
-	 * better-sqlite3 handle. The handle lives at
-	 * `pConn.instance._database` (Meadow-Connection-SQLite.js:172).
-	 */
-	_addColumnsSqlite(pConn, pTableName, pColumns, pResult)
-	{
-		let tmpDB = pConn.instance && pConn.instance._database;
-		if (!tmpDB || typeof tmpDB.exec !== 'function')
-		{
-			throw new Error('addColumnsSqlite: SQLite connection has no .exec method (unexpected meadow shape).');
-		}
-		for (let i = 0; i < pColumns.length; i++)
-		{
-			let tmpCol = pColumns[i];
-			let tmpFragment = this._sqliteColumnSqlFragment(tmpCol);
-			let tmpAlter = `ALTER TABLE "${pTableName}" ADD COLUMN ${tmpFragment};`;
-			try
-			{
-				tmpDB.exec(tmpAlter);
-				pResult.ColumnsAdded.push(`${pTableName}.${tmpCol.Column}`);
-			}
-			catch (pAlterErr)
-			{
-				if (/duplicate column/i.test(pAlterErr.message || ''))
-				{
-					continue;
-				}
-				throw pAlterErr;
-			}
-		}
-	}
-
-	/**
-	 * Mirror the column-type fragments emitted by
-	 * Meadow-Schema-SQLite.generateCreateTableStatement so the ALTER
-	 * matches exactly what the original CREATE would have produced.
-	 */
-	_sqliteColumnSqlFragment(pCol)
-	{
-		let tmpName = pCol.Column;
-		switch (pCol.DataType)
-		{
-			case 'GUID':
-				return `"${tmpName}" TEXT DEFAULT '00000000-0000-0000-0000-000000000000'`;
-			case 'ForeignKey':
-			case 'Numeric':
-				return `"${tmpName}" INTEGER NOT NULL DEFAULT 0`;
-			case 'Decimal':
-				return `"${tmpName}" REAL`;
-			case 'String':
-				return `"${tmpName}" TEXT NOT NULL DEFAULT ''`;
-			case 'Text':
-				return `"${tmpName}" TEXT`;
-			case 'DateTime':
-				return `"${tmpName}" TEXT`;
-			case 'Boolean':
-				return `"${tmpName}" INTEGER NOT NULL DEFAULT 0`;
-			case 'JSON':
-				return `"${tmpName}" TEXT`;
-			default:
-				return `"${tmpName}" TEXT`;
-		}
-	}
 }
 
 /**

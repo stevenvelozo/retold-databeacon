@@ -6,8 +6,13 @@ coverage/
 .nyc_output/
 test/screenshots/
 
+# Test scratch directories — created at suite-setup time, wiped on
+# teardown. Glob covers anything matching the .test_<name> convention,
+# at the package root or under test/.
+.test_*/
+test/.test_*/
+
 .data
-data
 documentation/source_research/
 package-lock.json
 

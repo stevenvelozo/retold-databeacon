@@ -625,6 +625,49 @@ suite('Persistence-via-DataBeacon — Session 2 smoke', function ()
 		Expect(tmpManifestStatus.AssignedBeaconID).to.equal(_StubBeaconID);
 	});
 
+	// ─── Session 4: bootstrap-flush idempotency on appendEvent ───────
+	// EventGUID is unique. Bootstrap-flush re-pushes events on every
+	// reconnect; the bridge must surface the resulting unique-violation
+	// as {Success: true, AlreadyPresent: true} so the flush sweep can
+	// keep advancing instead of aborting.
+
+	test('appendEvent twice with the same EventGUID returns AlreadyPresent on second call', function (fDone)
+	{
+		let tmpEvent =
+		{
+			EventGUID: '99999999-aaaa-bbbb-cccc-dddddddddddd',
+			WorkItemHash: 'wi-idempotent-event',
+			EventType: 'enqueued',
+			Payload: '{}',
+			EmittedAt: new Date().toISOString(),
+			Seq: 1,
+			FromStatus: '',
+			ToStatus: 'Pending',
+			BeaconID: 'bcn-self'
+		};
+
+		_Bridge.appendEvent(tmpEvent).then((pFirst) =>
+		{
+			Expect(pFirst.Success, `first append succeeds (Reason: ${pFirst.Reason})`).to.equal(true);
+			Expect(pFirst.AlreadyPresent, 'first append is fresh insert').to.not.equal(true);
+
+			return _Bridge.appendEvent(tmpEvent);
+		}).then((pSecond) =>
+		{
+			Expect(pSecond.Success, `second append succeeds (Reason: ${pSecond.Reason})`).to.equal(true);
+			Expect(pSecond.AlreadyPresent, 'second append is AlreadyPresent').to.equal(true);
+
+			let tmpDB = new libBetterSqlite(UV_DB_PATH, { readonly: true });
+			try
+			{
+				let tmpCount = tmpDB.prepare('SELECT COUNT(*) AS n FROM UVQueueWorkItemEvent WHERE EventGUID = ?').get(tmpEvent.EventGUID).n;
+				Expect(tmpCount, 'exactly one row landed').to.equal(1);
+			}
+			finally { tmpDB.close(); }
+			return fDone();
+		}).catch(fDone);
+	});
+
 	test('clearPersistenceAssignment drops state and getPersistenceStatus reports unassigned', function ()
 	{
 		_Bridge.clearPersistenceAssignment();

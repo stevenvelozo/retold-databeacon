@@ -124,6 +124,7 @@
 		"meadow-connection-retold-databeacon": "^0.0.2",
 		"meadow-connection-sqlite": "^1.0.18",
 		"meadow-endpoints": "^4.0.17",
+		"meadow-migrationmanager": "^0.0.13",
 		"orator": "^6.1.0",
 		"orator-serviceserver-restify": "^2.0.10",
 		"orator-static-server": "^2.1.3",
