@@ -1,18 +1,38 @@
 /**
- * DataBeacon ConnectionForm View
+ * DataBeacon — ConnectionForm view
  *
- * Renders the "Add Connection" form. Iterates over AppData.AvailableTypesForForm
- * (computed by the provider from loadAvailableTypes) for the Type dropdown.
- * On submit, reads inputs via ContentAssignment and delegates to the provider.
+ * Thin wrapper around the shared `pict-section-connection-form` view.
+ * This wrapper owns the persistent connection-record fields (Name,
+ * Description, AutoConnect) plus the Save button; the schema-driven
+ * provider <select> + per-provider field block is rendered by the
+ * shared view into a slot inside this template.
+ *
+ * Wiring:
+ *   - The shared view is registered in Pict-Application-DataBeacon.js
+ *     with ContainerSelector = '#DataBeacon-ConnectionForm-FieldsSlot'
+ *     and FieldIDPrefix = 'databeacon-conn'.
+ *   - Pict-Provider-DataBeacon#loadAvailableTypes() fetches
+ *     /beacon/connection/schemas and feeds the shared view via
+ *     setSchemas().
+ *   - On Save, this view reads name/description/autoconnect from its
+ *     own DOM and pulls Type + Config out of the shared view via
+ *     getProviderConfig(), then dispatches to provider.createConnection().
+ *
+ * Earlier versions of this view contained inline host/port/user/etc.
+ * inputs that were show/hide-toggled per type — that's now handled by
+ * the shared view, which also picks up MSSQL retry tuning, Solr
+ * secure-mode, MongoDB pool size, etc. for free.
  */
+'use strict';
+
 const libPictView = require('pict-view');
 
 const _ViewConfiguration =
 {
-	ViewIdentifier: 'ConnectionForm',
-	DefaultRenderable: 'DataBeacon-ConnectionForm',
+	ViewIdentifier:            'ConnectionForm',
+	DefaultRenderable:         'DataBeacon-ConnectionForm',
 	DefaultDestinationAddress: '#DataBeacon-ConnectionForm-Slot',
-	AutoRender: false,
+	AutoRender:                false,
 
 	Templates:
 	[
@@ -23,39 +43,30 @@ const _ViewConfiguration =
 	<h2>Add Connection</h2>
 	<div class="form-grid">
 		<div class="form-group"><label>Name</label><input type="text" id="databeacon-connform-name" placeholder="My Database" /></div>
-		<div class="form-group">
-			<label>Type</label>
-			<select id="databeacon-connform-type">{~TS:DataBeacon-ConnectionForm-TypeOption:AppData.AvailableTypesForForm~}</select>
-		</div>
-		<div class="form-group"><label>Host</label><input type="text" id="databeacon-connform-host" placeholder="localhost" /></div>
-		<div class="form-group"><label>Port</label><input type="number" id="databeacon-connform-port" placeholder="3306" /></div>
-		<div class="form-group"><label>Database</label><input type="text" id="databeacon-connform-database" placeholder="mydb" /></div>
-		<div class="form-group"><label>Username</label><input type="text" id="databeacon-connform-user" placeholder="root" /></div>
-		<div class="form-group"><label>Password</label><input type="password" id="databeacon-connform-password" /></div>
 		<div class="form-group"><label>Description</label><input type="text" id="databeacon-connform-description" /></div>
 		<div class="form-group checkbox-group"><label><input type="checkbox" id="databeacon-connform-autoconnect" /> Auto-connect on startup</label></div>
 	</div>
-	<div class="button-row">
+
+	<!-- pict-section-connection-form renders the type select + per-provider field block here -->
+	<div id="DataBeacon-ConnectionForm-FieldsSlot" style="margin-top:1em"></div>
+
+	<div class="button-row" style="margin-top:1em">
 		<a class="btn btn-primary" href="#/connections/create">
 			<span data-databeacon-icon="plus" data-icon-size="16"></span>
 			Add Connection
 		</a>
 	</div>
 </div>`
-		},
-		{
-			Hash: 'DataBeacon-ConnectionForm-TypeOption',
-			Template: `<option value="{~D:Record.Type~}">{~D:Record.Type~}</option>`
 		}
 	],
 
 	Renderables:
 	[
 		{
-			RenderableHash: 'DataBeacon-ConnectionForm',
-			TemplateHash: 'DataBeacon-ConnectionForm-Template',
+			RenderableHash:            'DataBeacon-ConnectionForm',
+			TemplateHash:              'DataBeacon-ConnectionForm-Template',
 			ContentDestinationAddress: '#DataBeacon-ConnectionForm-Slot',
-			RenderMethod: 'replace'
+			RenderMethod:              'replace'
 		}
 	]
 };
@@ -72,12 +83,17 @@ class PictViewDataBeaconConnectionForm extends libPictView
 		let tmpIcons = this.pict.providers['DataBeacon-Icons'];
 		if (tmpIcons) tmpIcons.injectIconPlaceholders('#DataBeacon-ConnectionForm-Root');
 
+		// Make sure the schema-driven form renders into our slot.  The
+		// shared view's AutoRender is false so we trigger it here once
+		// our slot exists.
+		let tmpFormView = this.pict.views['PictSection-ConnectionForm'];
+		if (tmpFormView) { tmpFormView.render(); }
+
 		return super.onAfterRender(pRenderable, pRenderDestinationAddress, pRecord, pContent);
 	}
 
 	// Router-handler entry point.  Application.createConnection() calls this
-	// via the `#/connections/create` route; values are read from the DOM at
-	// submit time so the form can re-render without clobbering pending input.
+	// via the `#/connections/create` route.
 	_submit() { this._createConnection(); }
 
 	_readValue(pSelector)
@@ -96,32 +112,26 @@ class PictViewDataBeaconConnectionForm extends libPictView
 
 	_createConnection()
 	{
-		let tmpType = this._readValue('#databeacon-connform-type');
-		let tmpName = this._readValue('#databeacon-connform-name') || 'Untitled';
+		let tmpName        = this._readValue('#databeacon-connform-name') || 'Untitled';
 		let tmpDescription = this._readValue('#databeacon-connform-description');
 		let tmpAutoConnect = this._readChecked('#databeacon-connform-autoconnect');
 
-		let tmpConfig;
-		if (tmpType === 'SQLite')
-		{
-			tmpConfig = { SQLiteFilePath: this._readValue('#databeacon-connform-database') };
-		}
-		else
-		{
-			let tmpPort = parseInt(this._readValue('#databeacon-connform-port'), 10);
-			tmpConfig =
-			{
-				host: this._readValue('#databeacon-connform-host') || 'localhost',
-				port: isNaN(tmpPort) ? undefined : tmpPort,
-				database: this._readValue('#databeacon-connform-database'),
-				user: this._readValue('#databeacon-connform-user'),
-				password: this._readValue('#databeacon-connform-password')
-			};
-		}
+		// Pull Type + Config out of the shared view.  Falls back to
+		// empty if the schemas haven't loaded yet (defensive — the
+		// Save button is rendered before the schema fetch returns).
+		let tmpFormView = this.pict.views['PictSection-ConnectionForm'];
+		let tmpConnInfo = (tmpFormView && typeof(tmpFormView.getProviderConfig) === 'function')
+			? tmpFormView.getProviderConfig()
+			: { Provider: 'MySQL', Config: {} };
 
 		this.pict.providers.DataBeaconProvider.createConnection(
-			{ Name: tmpName, Type: tmpType, Config: tmpConfig, AutoConnect: tmpAutoConnect, Description: tmpDescription }
-		);
+			{
+				Name:        tmpName,
+				Type:        tmpConnInfo.Provider || 'MySQL',
+				Config:      tmpConnInfo.Config || {},
+				AutoConnect: tmpAutoConnect,
+				Description: tmpDescription
+			});
 	}
 }
 

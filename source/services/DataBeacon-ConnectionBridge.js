@@ -682,6 +682,25 @@ class DataBeaconConnectionBridge extends libFableServiceProviderBase
 				return fNext();
 			});
 
+		// GET /beacon/connection/schemas -- aggregated form schemas, drives
+		// the schema-driven ConnectionForm view (pict-section-connection-form).
+		// MCM 1.1.0+ exposes getAllProviderFormSchemas(); older versions are
+		// handled defensively so the UI surfaces a friendly empty state.
+		pOratorServiceServer.doGet(`${tmpRoutePrefix}/connection/schemas`,
+			(pRequest, pResponse, fNext) =>
+			{
+				let tmpMCM = this.fable.MeadowConnectionManager;
+				let tmpSchemas = (tmpMCM && typeof(tmpMCM.getAllProviderFormSchemas) === 'function')
+					? tmpMCM.getAllProviderFormSchemas()
+					: [];
+				if (tmpSchemas.length === 0)
+				{
+					this.fable.log.warn('DataBeacon: meadow-connection-manager getAllProviderFormSchemas() returned no schemas; UI will show "no providers detected".');
+				}
+				pResponse.send({ Schemas: tmpSchemas });
+				return fNext();
+			});
+
 		this.fable.log.info(`DataBeacon ConnectionBridge routes connected at ${tmpRoutePrefix}/connection*`);
 	}
 }

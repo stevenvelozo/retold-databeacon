@@ -8,6 +8,7 @@
 const libPictApplication = require('pict-application');
 const libPictSectionModal = require('pict-section-modal');
 const libPictSectionCode = require('pict-section-code');
+const libPictSectionConnectionForm = require('pict-section-connection-form');
 const libPictRouter = require('pict-router');
 const libPictRouterConfig = require('./providers/PictRouter-DataBeacon-Configuration.json');
 
@@ -64,6 +65,21 @@ class DataBeaconApplication extends libPictApplication
 		// Sub-views
 		this.pict.addView('ConnectionForm', libViewConnectionForm.default_configuration, libViewConnectionForm);
 		this.pict.addView('ConnectionList', libViewConnectionList.default_configuration, libViewConnectionList);
+
+		// Shared schema-driven connection form.  Renders the type
+		// select + per-provider field block into the slot owned by
+		// the ConnectionForm wrapper view.  The provider's
+		// loadAvailableTypes() pumps schemas in once
+		// /beacon/connection/schemas responds.
+		this.pict.addView('PictSection-ConnectionForm',
+			Object.assign({}, libPictSectionConnectionForm.default_configuration,
+				{
+					ContainerSelector:         '#DataBeacon-ConnectionForm-FieldsSlot',
+					DefaultDestinationAddress: '#DataBeacon-ConnectionForm-FieldsSlot',
+					SchemasAddress:            'AppData.ConnectionFormSchemas',
+					ActiveAddress:             'AppData.ConnectionFormActiveProvider',
+					FieldIDPrefix:             'databeacon-conn'
+				}), libPictSectionConnectionForm);
 		this.pict.addView('IntrospectionControls', libViewIntrospectionControls.default_configuration, libViewIntrospectionControls);
 		this.pict.addView('IntrospectionTables', libViewIntrospectionTables.default_configuration, libViewIntrospectionTables);
 		this.pict.addView('RecordBrowser', libViewRecordBrowser.default_configuration, libViewRecordBrowser);

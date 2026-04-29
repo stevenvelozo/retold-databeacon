@@ -126,6 +126,13 @@ class DataBeaconProvider extends libPictProvider
 
 	loadAvailableTypes(fCallback)
 	{
+		// Two parallel hits:
+		//   - /beacon/connection/available-types  → installed-flag map (kept
+		//     for compatibility with anything still iterating
+		//     AppData.AvailableTypes / AvailableTypesForForm).
+		//   - /beacon/connection/schemas          → aggregated form schemas
+		//     (drives the shared pict-section-connection-form view).
+		// Both are cheap, idempotent, and only run on app load.
 		this._apiCall('GET', '/beacon/connection/available-types', null,
 			(pError, pData) =>
 			{
@@ -136,6 +143,24 @@ class DataBeaconProvider extends libPictProvider
 				}
 				if (this.pict.views.ConnectionForm) this.pict.views.ConnectionForm.render();
 				if (fCallback) fCallback(pError, pData);
+			});
+
+		// Hand the schemas to the shared view so its provider <select>
+		// + per-provider field block can paint.  Failures are non-fatal
+		// — the shared view shows a friendly empty-state notice.
+		this._apiCall('GET', '/beacon/connection/schemas', null,
+			(pSchemaError, pSchemaData) =>
+			{
+				let tmpSchemas = (pSchemaData && Array.isArray(pSchemaData.Schemas)) ? pSchemaData.Schemas : [];
+				let tmpFormView = this.pict.views['PictSection-ConnectionForm'];
+				if (tmpFormView && typeof(tmpFormView.setSchemas) === 'function')
+				{
+					tmpFormView.setSchemas(tmpSchemas);
+				}
+				if (pSchemaError && this.fable && this.fable.log)
+				{
+					this.fable.log.warn(`DataBeacon: failed to fetch /beacon/connection/schemas: ${pSchemaError.message || pSchemaError}`);
+				}
 			});
 	}
 
