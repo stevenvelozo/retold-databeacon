@@ -10,6 +10,17 @@
  *   serve               Start the API server with web UI (default)
  *   init                Initialize the database schema
  *
+ * Configuration precedence (highest first):
+ *   1. CLI flags          (e.g. `--port 9000`)
+ *   2. DATABEACON_* env vars
+ *   3. JSON config file   (--config <path>)
+ *   4. Built-in defaults
+ *
+ * Standard `_FILE` suffix convention is honored on every secret-bearing
+ * env var (e.g. DATABEACON_BEACON_PASSWORD_FILE=/run/secrets/foo) so
+ * passwords can be sourced from Docker / k8s secret mounts instead of
+ * being baked into env-var strings visible to `docker inspect`.
+ *
  * @author Steven Velozo <steven@velozo.com>
  */
 const libFable = require('pict');
@@ -18,6 +29,37 @@ const libRetoldDataBeacon = require('../source/Retold-DataBeacon.js');
 
 const libFs = require('fs');
 const libPath = require('path');
+
+// ================================================================
+// Env var resolution helper
+// ================================================================
+
+// Returns the value of an env var, with `_FILE` fallback for secrets:
+// if `<NAME>` is set, return it; otherwise if `<NAME>_FILE` points to a
+// readable file, return its trimmed contents. This is the same pattern
+// the official mysql / postgres images use so `docker secret`,
+// `k8s Secret`, and similar all work without bespoke wiring.
+function _envOrFile(pVarName)
+{
+	let tmpValue = process.env[pVarName];
+	if (tmpValue !== undefined && tmpValue !== '')
+	{
+		return tmpValue;
+	}
+	let tmpFilePath = process.env[pVarName + '_FILE'];
+	if (tmpFilePath)
+	{
+		try
+		{
+			return libFs.readFileSync(tmpFilePath, 'utf8').replace(/\s+$/, '');
+		}
+		catch (pErr)
+		{
+			console.warn(`Retold DataBeacon: ${pVarName}_FILE set to ${tmpFilePath} but file is unreadable: ${pErr.message}`);
+		}
+	}
+	return undefined;
+}
 
 // ================================================================
 // CLI Argument Parsing
@@ -29,6 +71,33 @@ let _CLIPort = null;
 let _CLIDBPath = null;
 let _CLICommand = 'serve';
 let _CLIMode = 'server';  // 'server' (default, agent-on-customer) | 'client' (engineer laptop)
+
+// Env-var defaults (CLI flags, parsed below, will override these).
+// Reading these first means a config-file env var also seeds _CLIConfig
+// before CLI parsing, so the CLI's existing precedence still wins.
+let tmpEnvConfigPath = _envOrFile('DATABEACON_CONFIG_FILE');
+if (tmpEnvConfigPath)
+{
+	try
+	{
+		let tmpResolved = libPath.resolve(tmpEnvConfigPath);
+		_CLIConfig = JSON.parse(libFs.readFileSync(tmpResolved, 'utf8'));
+		console.log(`Retold DataBeacon: Loaded config from ${tmpResolved} (DATABEACON_CONFIG_FILE)`);
+	}
+	catch (pErr)
+	{
+		console.error(`Retold DataBeacon: DATABEACON_CONFIG_FILE=${tmpEnvConfigPath} unreadable: ${pErr.message}`);
+		process.exit(1);
+	}
+}
+let tmpEnvPort = _envOrFile('DATABEACON_PORT');
+if (tmpEnvPort) { _CLIPort = parseInt(tmpEnvPort, 10); }
+let tmpEnvDBPath = _envOrFile('DATABEACON_DB_PATH');
+if (tmpEnvDBPath) { _CLIDBPath = libPath.resolve(tmpEnvDBPath); }
+let tmpEnvLogPath = _envOrFile('DATABEACON_LOG_PATH');
+if (tmpEnvLogPath) { _CLILogPath = libPath.resolve(tmpEnvLogPath); }
+let tmpEnvMode = _envOrFile('DATABEACON_MODE');
+if (tmpEnvMode === 'client' || tmpEnvMode === 'server') { _CLIMode = tmpEnvMode; }
 
 // Parse arguments
 let tmpArgs = process.argv.slice(2);
@@ -165,12 +234,34 @@ Modes:
                        remote customer by adding a BeaconConnection row
                        with Type = RetoldDataBeacon.
 
+Environment variables (CLI flags take precedence):
+  DATABEACON_PORT              Same as --port
+  DATABEACON_DB_PATH           Same as --db
+  DATABEACON_LOG_PATH          Same as --log
+  DATABEACON_MODE              Same as --mode (server | client)
+  DATABEACON_CONFIG_FILE       Same as --config
+
+  DATABEACON_ULTRAVISOR_URL    If set, auto-connect to this Ultravisor on startup
+  DATABEACON_BEACON_NAME       Name to register with (default: retold-databeacon)
+  DATABEACON_BEACON_PASSWORD   Auth password for the beacon connection
+  DATABEACON_MAX_CONCURRENT    Max concurrent work items (default: 3)
+
+  Any secret-bearing var also accepts a *_FILE suffix that points to a
+  file whose contents become the value. Example:
+    DATABEACON_BEACON_PASSWORD_FILE=/run/secrets/databeacon
+  This is the same convention mysql / postgres images use, so docker
+  secret + k8s Secret mounts work without bespoke wiring.
+
 Examples:
   retold-databeacon                              Start server on default port
   retold-databeacon serve --port 9000            Start server on port 9000
   retold-databeacon --client                     Engineer-mode (remote SQL client)
   retold-databeacon init                         Create database tables
   retold-databeacon serve --db /mnt/data/db.sqlite  Use external volume for DB
+
+  DATABEACON_ULTRAVISOR_URL=http://uv:54321 \\
+  DATABEACON_BEACON_PASSWORD_FILE=/run/secrets/uv-pass \\
+    retold-databeacon                            Container-style boot with auto-connect
 `);
 }
 
@@ -325,6 +416,34 @@ function commandServe()
 			{
 				_Fable.log.info(`Client-mode DB: ${_Settings.SQLite.SQLiteFilePath}`);
 				_Fable.log.info('Add a connection with Type="RetoldDataBeacon" to talk to a remote databeacon via Ultravisor.');
+			}
+
+			// Optional auto-connect to an Ultravisor coordinator. Only
+			// runs when DATABEACON_ULTRAVISOR_URL is set; standalone
+			// users with no Ultravisor in the loop see no behavior
+			// change. Failures are logged but don't kill the process —
+			// the beacon is still useful as a local REST surface.
+			let tmpUVUrl = _envOrFile('DATABEACON_ULTRAVISOR_URL');
+			if (tmpUVUrl)
+			{
+				let tmpBeaconConfig =
+				{
+					ServerURL:     tmpUVUrl,
+					Name:          _envOrFile('DATABEACON_BEACON_NAME') || 'retold-databeacon',
+					Password:      _envOrFile('DATABEACON_BEACON_PASSWORD') || '',
+					MaxConcurrent: parseInt(_envOrFile('DATABEACON_MAX_CONCURRENT') || '3', 10)
+				};
+				_Fable.log.info(`Auto-connecting to Ultravisor at ${tmpUVUrl} as "${tmpBeaconConfig.Name}"...`);
+				_Fable.DataBeaconBeaconProvider.connectBeacon(tmpBeaconConfig,
+					(pConnectError) =>
+					{
+						if (pConnectError)
+						{
+							_Fable.log.error(`Ultravisor auto-connect failed: ${pConnectError.message || pConnectError}`);
+							return;
+						}
+						_Fable.log.info(`Ultravisor auto-connect succeeded — registered as "${tmpBeaconConfig.Name}".`);
+					});
 			}
 		});
 }
