@@ -2,7 +2,13 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+# `npm install`, not `npm ci` — this ecosystem's Quackage convention
+# is to gitignore package-lock.json, so `ci` (which requires the
+# lockfile in the build context) cannot work in CI. The tradeoff is
+# that builds resolve dep ranges fresh each time rather than from a
+# pinned tree; acceptable for retold modules where the upstream
+# ranges are owned by the same author.
+RUN npm install
 COPY .quackage.json ./
 COPY source/ source/
 COPY bin/ bin/
@@ -16,7 +22,7 @@ RUN cp node_modules/pict/dist/pict.min.js source/services/web-app/web/pict.min.j
 FROM node:20-slim
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 COPY --from=builder /app/source/ source/
 COPY --from=builder /app/bin/ bin/
 COPY --from=builder /app/model/ model/

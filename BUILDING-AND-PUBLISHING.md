@@ -40,6 +40,30 @@ pushes for you. See [The chain](#the-chain) for what's actually happening.
 
 ---
 
+## Ecosystem convention: lockfiles are gitignored
+
+`package-lock.json` is in this repo's `.gitignore` (Quackage convention
+shared across the retold ecosystem). That has two consequences for the
+Dockerfile and the publish pipeline that are worth knowing:
+
+- **The Dockerfile uses `npm install`, not `npm ci`.** `npm ci` requires
+  `package-lock.json` to be present in the build context, and CI runners
+  check out only what's in git. Switching to `npm ci` will fail every
+  GHCR build with `EUSAGE: The npm ci command can only install with an
+  existing package-lock.json`.
+- **Builds resolve dep ranges fresh each time.** The tradeoff vs. a
+  pinned `npm ci` build is reproducibility — two builds of the same git
+  SHA can pick up different transitive versions if anything in the
+  range bumps. Acceptable for retold modules because the upstream
+  ranges are owned by the same author; for stricter reproducibility,
+  the alternative is to commit the lockfile (and revert the
+  ecosystem-wide convention here).
+
+If you see `npm ci` errors in the GHCR workflow logs, the fix is always
+the same: change `RUN npm ci` to `RUN npm install` in the Dockerfile.
+
+---
+
 ## Releasing
 
 ### One-shot release (recommended)
