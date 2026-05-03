@@ -119,7 +119,7 @@
 	"devDependencies": {
 		"pict-docuserve": "^0.1.5",
 		"puppeteer": "^24.40.0",
-		"quackage": "^1.1.3",
+		"quackage": "^1.2.0",
 		"stricture": "^4.0.2",
 		"supertest": "^7.2.2"
 	},
@@ -141,10 +141,10 @@
 		"pict": "^1.0.365",
 		"pict-application": "^1.0.33",
 		"pict-router": "^1.0.9",
-		"pict-section-connection-form": "^0.0.1",
+		"pict-section-connection-form": "^0.0.2",
 		"pict-section-modal": "^0.0.5",
 		"pict-view": "^1.0.68",
-		"retold-facto": "^0.2.0",
+		"retold-facto": "^1.0.0",
 		"ultravisor-beacon": "^0.0.14"
 	},
 	"optionalDependencies": {
