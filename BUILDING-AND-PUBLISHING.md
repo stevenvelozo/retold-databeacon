@@ -11,17 +11,19 @@ port, lifecycle shape) differ.
 ## TL;DR
 
 ```bash
-# from the module directory
+# npm-only release (the default — most common case)
 npm run release:patch
+
+# npm release that ALSO rebuilds the GHCR image
+npm run release:patch:image
 ```
 
-That single command runs tests, bumps the version, commits, tags, pushes
-the tag, publishes to npm, and triggers the GHCR workflow. Three minutes
-later there's a new image at `ghcr.io/stevenvelozo/retold-databeacon:<version>`.
-
-If you `npm publish` from the CLI directly (without going through
-`release:patch`), it Just Works™ too — the `postpublish` hook tags and
-pushes for you. See [The chain](#the-chain) for what's actually happening.
+The default release is npm-only. Docker images are deliberate, opt-in
+artifacts because each multi-arch build burns several minutes of CI
+time. Use `:image` (or set `BUILD_DOCKER=1`) when you actually want a
+new image — typically when runtime code, dependencies, env-var contract,
+or the Dockerfile changed. For a doc-only fix or internal-only patch,
+the plain `release:patch` ships to npm and skips the image rebuild.
 
 ---
 
@@ -66,65 +68,98 @@ the same: change `RUN npm ci` to `RUN npm install` in the Dockerfile.
 
 ## Releasing
 
-### One-shot release (recommended)
+### Two flavors of release
 
-```bash
-npm run release:patch    # 0.0.15 → 0.0.16
-npm run release:minor    # 0.0.15 → 0.1.0
-npm run release:major    # 0.0.15 → 1.0.0
-```
+| Command                              | npm registry | GHCR image rebuild |
+|--------------------------------------|--------------|--------------------|
+| `npm run release:patch`              | yes          | no                 |
+| `npm run release:patch:image`        | yes          | yes                |
+| `npm run release:minor`              | yes          | no                 |
+| `npm run release:minor:image`        | yes          | yes                |
+| `npm run release:major`              | yes          | no                 |
+| `npm run release:major:image`        | yes          | yes                |
 
-What `release:patch` does, in order:
+The non-`:image` variants are the default because most patch releases
+don't change runtime behavior; the `:image` variants tell the pipeline
+"this release does change runtime — build me a new image."
+
+### What `release:patch` does (no docker)
 
 1. **`npm version patch`** — bumps `package.json`, creates a commit
-   (`0.0.16`), creates a local tag `v0.0.16`.
-2. **`postversion`** hook fires — `git push --follow-tags` pushes the
-   commit and the tag.
-3. **GitHub receives the tag** — the `publish-image.yml` workflow starts
-   building.
-4. **`npm publish`** runs — `prepublishOnly` runs `npm test` first as
-   the gate. If tests fail, publish aborts (the tag is still on the
-   remote; you can fix and re-publish without re-tagging).
-5. **`postpublish`** hook fires — tries `git tag v0.0.16` (no-op since
-   it already exists) and `git push` (no-op since it's already on the
-   remote). Idempotent on this path.
+   (`0.0.18`), creates a local tag `v0.0.18`.
+2. **`postversion`** hook fires — `git push` pushes the commit. The
+   tag stays local (intentional — no tag push means no GHCR trigger).
+3. **`npm publish`** runs — `prepublishOnly` runs `npm test` first as
+   the gate. If tests fail, publish aborts.
+4. **`postpublish`** hook fires — checks `BUILD_DOCKER`; unset, so it
+   does nothing.
 
-By the time the command returns, npm has the new version and the GHCR
-workflow is in progress.
+End state: npm has the new version, git has the bump commit, the
+`v0.0.18` tag exists locally only, no GHCR build was triggered.
+
+### What `release:patch:image` does (with docker)
+
+Same as above, except `npm publish` runs with `BUILD_DOCKER=1` in the
+environment. The `postpublish` hook sees the flag and pushes the
+`v0.0.18` tag to the remote, which fires the GHCR workflow.
+
+### Promoting a previous npm release to docker later
+
+If you released `v0.0.18` to npm only, then later decide you do want a
+docker image for it:
+
+```bash
+git push origin v0.0.18    # pushes the local tag → GHCR fires
+```
+
+The local tag is still sitting there from the original `npm version`
+step. Pushing it triggers the workflow without touching npm.
 
 ### Direct CLI publish (also works)
 
 ```bash
-# bumped manually with `npm version patch --no-git-tag-version` earlier,
-# committed and pushed by hand, now want to publish:
+# already-bumped, want to publish to npm only (default):
 npm publish
-```
 
-Same end state. The `postpublish` hook creates and pushes the
-`v<version>` tag (which it didn't exist yet on this path), GHCR fires,
-image is built. You don't need to remember any extra steps.
+# already-bumped, want to publish to npm AND build docker:
+npm run publish:docker
+# or equivalently:
+BUILD_DOCKER=1 npm publish
+```
 
 ### From `retold-manager` TUI
 
-Hitting `[!]` Publish in the manager runs `npm publish`, which means
-`postpublish` fires the same way. No special manager-side wiring needed
-once these scripts are in `package.json`.
+- `[!]` Publish — npm only. Existing key, behavior unchanged.
+- `[D]` Publish with docker image — npm + GHCR build. New key.
 
 ---
 
 ## The chain
 
-The lifecycle hooks all live in `package.json`:
+The lifecycle hooks all live in `package.json`. Default path
+(`BUILD_DOCKER` unset):
 
 ```
 npm publish
-  ↓ (npm runs)
-prepublishOnly: npm test                  ← test gate
+  ↓
+prepublishOnly: npm test                       ← test gate
   ↓ (passes)
 publish to npm registry
   ↓ (succeeds)
-postpublish:                              ← image trigger
-  git tag v<version>                      ← idempotent
+postpublish: BUILD_DOCKER unset → no-op        ← image NOT triggered
+```
+
+Docker-included path (`BUILD_DOCKER=1`):
+
+```
+BUILD_DOCKER=1 npm publish    (or: npm run publish:docker)
+  ↓
+prepublishOnly: npm test                       ← test gate
+  ↓ (passes)
+publish to npm registry
+  ↓ (succeeds)
+postpublish: BUILD_DOCKER=1 → tag + push       ← image trigger
+  git tag v<version>                           ← creates if not present
   git push origin v<version>
   ↓ (tag arrives at GitHub)
 .github/workflows/publish-image.yml fires:
@@ -133,9 +168,9 @@ postpublish:                              ← image trigger
   - tags: <version>, <major>.<minor>, <major>, latest
 ```
 
-The `release:patch` script wraps this with a preceding `npm version
-patch` so you don't have to bump separately. Either path lands at the
-same result.
+The `release:patch` (no docker) and `release:patch:image` (docker)
+scripts both wrap this with a preceding `npm version patch` so you
+don't have to bump separately.
 
 ---
 

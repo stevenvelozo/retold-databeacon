@@ -1,6 +1,6 @@
 {
 	"name": "retold-databeacon",
-	"version": "0.0.16",
+	"version": "1.0.0",
 	"description": "Deployable data beacon service — connect to remote databases, introspect schemas, generate REST endpoints, and expose beacon capabilities to the Ultravisor mesh.",
 	"main": "source/Retold-DataBeacon.js",
 	"bin": {
@@ -23,11 +23,15 @@
 		"dev": "node test/dev-server.js",
 		"dev-seed": "node test/seed-dev.js",
 		"prepublishOnly": "npm test",
-		"postversion": "git push --follow-tags",
-		"postpublish": "git tag v$npm_package_version 2>/dev/null; git push origin v$npm_package_version 2>/dev/null || true",
-		"release:patch": "npm version patch && npm publish",
-		"release:minor": "npm version minor && npm publish",
-		"release:major": "npm version major && npm publish"
+		"postversion": "npx quack release postversion",
+		"postpublish": "npx quack release postpublish",
+		"publish:docker": "npx quack release publish --image",
+		"release:patch": "npx quack release patch",
+		"release:minor": "npx quack release minor",
+		"release:major": "npx quack release major",
+		"release:patch:image": "npx quack release patch --image",
+		"release:minor:image": "npx quack release minor --image",
+		"release:major:image": "npx quack release major --image"
 	},
 	"mocha": {
 		"spec": "test/RetoldDataBeacon_tests.js",
