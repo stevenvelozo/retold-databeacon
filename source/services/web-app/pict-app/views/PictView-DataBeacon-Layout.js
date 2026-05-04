@@ -49,7 +49,7 @@ const _ViewConfiguration =
 	<div class="sidebar">
 		<div class="sidebar-header">
 			<div class="sidebar-header-text">
-				<h2>DataBeacon</h2>
+				<h2>DataBeacon{~D:AppData.Dashboard.BeaconNameDisplay~}</h2>
 				<span class="version">v0.0.1</span>
 			</div>
 			<div class="sidebar-header-controls" id="DataBeacon-ThemeSwitcher-Slot"></div>

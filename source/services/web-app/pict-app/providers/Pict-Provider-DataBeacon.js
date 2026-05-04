@@ -921,8 +921,30 @@ class DataBeaconProvider extends libPictProvider
 			BeaconStatusLabel: tmpBeaconStatus.Connected ? 'Connected' : 'Not Connected',
 			BeaconBadgeClass: tmpBeaconStatus.Connected ? 'badge-success' : 'badge-neutral',
 			BeaconName: tmpBeaconStatus.BeaconName || 'retold-databeacon',
+			BeaconNameDisplay: this._prettyBeaconName(tmpBeaconStatus.BeaconName),
 			ConnectionSummary: tmpSummary
 		};
+	}
+
+	_prettyBeaconName(pRawName)
+	{
+		if (!pRawName) return '';
+		let tmpAcronyms = { opdb: 'OpDB', sql: 'SQL', db: 'DB', api: 'API', uv: 'UV' };
+		let tmpStripped = String(pRawName).replace(/-?databeacon$/i, '');
+		let tmpDisplay = tmpStripped.split('-').map((p) =>
+			tmpAcronyms[p.toLowerCase()] || (p ? p[0].toUpperCase() + p.slice(1) : '')
+		).join(' ');
+		let tmpFormatted = tmpDisplay ? ' — ' + tmpDisplay : '';
+		// The Layout shell template only renders once on app boot, so the
+		// {~D:AppData.Dashboard.BeaconNameDisplay~} binding doesn't reflect
+		// a later status load. Push the value into the sidebar h2 directly
+		// so it stays in sync once the beacon's name resolves.
+		if (typeof document !== 'undefined')
+		{
+			let tmpHeader = document.querySelector('.sidebar-header h2');
+			if (tmpHeader) tmpHeader.textContent = 'DataBeacon' + tmpFormatted;
+		}
+		return tmpFormatted;
 	}
 
 	_formatCellValue(pValue)

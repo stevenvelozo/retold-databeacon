@@ -3,14 +3,40 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Retold DataBeacon</title>
+	<title>DataBeacon</title>
 	<link rel="stylesheet" href="css/databeacon.css">
 	<style id="PICT-CSS"></style>
+	<script>
+	// Fetch the beacon's registered name early so the tab title and loading
+	// header show "DataBeacon — <Name>" before the Pict bundle even mounts.
+	(function ()
+	{
+		const ACRONYMS = { opdb: 'OpDB', sql: 'SQL', db: 'DB', api: 'API', uv: 'UV' };
+		function pretty(pRawName)
+		{
+			if (!pRawName) return '';
+			const tmpStripped = String(pRawName).replace(/-?databeacon$/i, '');
+			return tmpStripped.split('-').map(p =>
+				ACRONYMS[p.toLowerCase()] || (p ? p[0].toUpperCase() + p.slice(1) : '')
+			).join(' ');
+		}
+		fetch('/beacon/ultravisor/status').then(r => r.json()).then(d =>
+		{
+			const tmpDisplay = pretty(d && d.BeaconName);
+			if (tmpDisplay)
+			{
+				document.title = 'DataBeacon — ' + tmpDisplay;
+				const tmpH2 = document.querySelector('.loading-screen h2');
+				if (tmpH2) tmpH2.textContent = 'DataBeacon — ' + tmpDisplay;
+			}
+		}).catch(() => {});
+	})();
+	</script>
 </head>
 <body>
 	<div id="DataBeacon-App">
 		<div class="loading-screen">
-			<h2>Retold DataBeacon</h2>
+			<h2>DataBeacon</h2>
 			<p>Loading...</p>
 		</div>
 	</div>
