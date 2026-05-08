@@ -2685,7 +2685,7 @@
 	font-family: 'SFMono-Regular', 'SF Mono', 'Menlo', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
 	font-size: 14px;
 	line-height: 1.5;
-	border: 1px solid #D0D0D0;
+	border: 1px solid var(--theme-color-border-default, #D0D0D0);
 	border-radius: 4px;
 	overflow: hidden;
 }
@@ -2695,9 +2695,9 @@
 	min-width: 40px;
 	padding: 10px 0;
 	text-align: right;
-	background: #F5F5F5;
-	border-right: 1px solid #D0D0D0;
-	color: #999;
+	background: var(--theme-color-background-secondary, #F5F5F5);
+	border-right: 1px solid var(--theme-color-border-default, #D0D0D0);
+	color: var(--theme-color-text-muted, #999);
 	font-size: 13px;
 	line-height: 1.5;
 	user-select: none;
@@ -2720,8 +2720,8 @@
 	tab-size: 4;
 	white-space: pre;
 	overflow-wrap: normal;
-	color: #383A42;
-	background: #FAFAFA;
+	color: var(--theme-color-text-primary, #383A42);
+	background: var(--theme-color-background-secondary, #FAFAFA);
 	caret-color: #526FFF;
 	border-radius: 0 4px 4px 0;
 }
@@ -2731,16 +2731,16 @@
 	border-radius: 4px;
 }
 .pict-code-editor-wrap .pict-code-editor .keyword { color: #A626A4; }
-.pict-code-editor-wrap .pict-code-editor .string { color: #50A14F; }
-.pict-code-editor-wrap .pict-code-editor .number { color: #986801; }
+.pict-code-editor-wrap .pict-code-editor .string { color: var(--theme-color-status-success, #50A14F); }
+.pict-code-editor-wrap .pict-code-editor .number { color: var(--theme-color-status-warning, #986801); }
 .pict-code-editor-wrap .pict-code-editor .comment { color: #A0A1A7; font-style: italic; }
-.pict-code-editor-wrap .pict-code-editor .operator { color: #0184BC; }
-.pict-code-editor-wrap .pict-code-editor .punctuation { color: #383A42; }
-.pict-code-editor-wrap .pict-code-editor .function-name { color: #4078F2; }
-.pict-code-editor-wrap .pict-code-editor .property { color: #E45649; }
-.pict-code-editor-wrap .pict-code-editor .tag { color: #E45649; }
-.pict-code-editor-wrap .pict-code-editor .attr-name { color: #986801; }
-.pict-code-editor-wrap .pict-code-editor .attr-value { color: #50A14F; }
+.pict-code-editor-wrap .pict-code-editor .operator { color: var(--theme-color-status-info, #0184BC); }
+.pict-code-editor-wrap .pict-code-editor .punctuation { color: var(--theme-color-text-primary, #383A42); }
+.pict-code-editor-wrap .pict-code-editor .function-name { color: var(--theme-color-brand-primary, #4078F2); }
+.pict-code-editor-wrap .pict-code-editor .property { color: var(--theme-color-status-error, #E45649); }
+.pict-code-editor-wrap .pict-code-editor .tag { color: var(--theme-color-status-error, #E45649); }
+.pict-code-editor-wrap .pict-code-editor .attr-name { color: var(--theme-color-status-warning, #986801); }
+.pict-code-editor-wrap .pict-code-editor .attr-value { color: var(--theme-color-status-success, #50A14F); }
 `
       };
     }, {}],
@@ -3262,7 +3262,7 @@
 	padding: 7px 10px;
 	border: 1px solid #cbd5e1;
 	border-radius: 6px;
-	background: #fff;
+	background: var(--theme-color-background-panel, #fff);
 	color: #0f172a;
 	height: 36px;
 }
@@ -3290,7 +3290,7 @@
 	padding: 7px 10px;
 	border: 1px solid #cbd5e1;
 	border-radius: 6px;
-	background: #fff;
+	background: var(--theme-color-background-panel, #fff);
 	color: #0f172a;
 }
 .pict-conn-form__field input[type="checkbox"] {
@@ -5075,12 +5075,12 @@
 	/* Dialog */
 	--pict-modal-bg: #ffffff;
 	--pict-modal-fg: #1a1a1a;
-	--pict-modal-border: #e0e0e0;
+	--pict-modal-border: var(--theme-color-border-default, #e0e0e0);
 	--pict-modal-border-radius: 8px;
 	--pict-modal-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 	--pict-modal-header-bg: #f5f5f5;
 	--pict-modal-header-fg: #1a1a1a;
-	--pict-modal-header-border: #e0e0e0;
+	--pict-modal-header-border: var(--theme-color-border-default, #e0e0e0);
 
 	/* Buttons */
 	--pict-modal-btn-bg: #e0e0e0;
@@ -8390,7 +8390,7 @@ body[data-theme="mac-classic"][data-mode-effective="light"]
 	--accent-warning: #cc6600;
 	--accent-danger: #cc0000;
 	--accent-info: #4080ff;
-	--border-color: #999999;
+	--border-color: var(--theme-color-text-muted, #999999);
 }
 
 body[data-theme="mac-classic"][data-mode-effective="dark"]
@@ -8409,7 +8409,7 @@ body[data-theme="mac-classic"][data-mode-effective="dark"]
 	--accent-warning: #ff9933;
 	--accent-danger: #ff4060;
 	--accent-info: #60a0ff;
-	--border-color: #555555;
+	--border-color: var(--theme-color-text-secondary, #555555);
 }
 
 /* ──────────────────────────────────────────────────────────────────────

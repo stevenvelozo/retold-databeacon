@@ -78,7 +78,7 @@ body[data-theme="mac-classic"][data-mode-effective="light"]
 	--accent-warning: #cc6600;
 	--accent-danger: #cc0000;
 	--accent-info: #4080ff;
-	--border-color: #999999;
+	--border-color: var(--theme-color-text-muted, #999999);
 }
 
 body[data-theme="mac-classic"][data-mode-effective="dark"]
@@ -97,7 +97,7 @@ body[data-theme="mac-classic"][data-mode-effective="dark"]
 	--accent-warning: #ff9933;
 	--accent-danger: #ff4060;
 	--accent-info: #60a0ff;
-	--border-color: #555555;
+	--border-color: var(--theme-color-text-secondary, #555555);
 }
 
 /* ──────────────────────────────────────────────────────────────────────
