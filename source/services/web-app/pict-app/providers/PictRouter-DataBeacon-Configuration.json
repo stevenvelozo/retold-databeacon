@@ -7,6 +7,7 @@
 	"Routes":
 	[
 		{ "path": "/view/dashboard",     "template": "{~LV:Pict.PictApplication.setActiveView(`Dashboard`)~}" },
+		{ "path": "/Login",              "template": "{~LV:Pict.PictApplication.setActiveView(`Login`)~}" },
 		{ "path": "/view/connections",   "template": "{~LV:Pict.PictApplication.setActiveView(`Connections`)~}" },
 		{ "path": "/view/introspection", "template": "{~LV:Pict.PictApplication.setActiveView(`Introspection`)~}" },
 		{ "path": "/view/endpoints",     "template": "{~LV:Pict.PictApplication.setActiveView(`Endpoints`)~}" },

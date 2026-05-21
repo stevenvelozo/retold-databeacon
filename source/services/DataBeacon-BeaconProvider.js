@@ -104,8 +104,64 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 					return fCallback(pError);
 				}
 				this.log.info(`DataBeacon beacon connected to ${pBeaconConfig.ServerURL}`);
+				// Install the web-UI auth proxy now that we know the UV
+				// URL + beacon name + (eventually) the BeaconID.  This
+				// is the entire opt-in for login + audit on the
+				// databeacon's UI — gated routes 401 when UV is in
+				// authenticated mode, pass-through in promiscuous.
+				try
+				{
+					this._installWebAuth(pBeaconConfig);
+				}
+				catch (pInstallErr)
+				{
+					// Non-fatal: log and continue.  The beacon still
+					// serves its API + UI; users just won't get the
+					// login screen until the next restart.
+					this.log.warn(`WebAuth install skipped: ${pInstallErr && pInstallErr.message}`);
+				}
 				return fCallback(null);
 			});
+	}
+
+	/**
+	 * Wire the beacon-SDK's WebAuth helper into the databeacon's Orator
+	 * server.  Idempotent — the helper short-circuits on a repeat call
+	 * via its internal WeakMap registry, so a second connectBeacon
+	 * doesn't double-mount routes.
+	 */
+	_installWebAuth(pBeaconConfig)
+	{
+		if (!libBeaconService || !libBeaconService.WebAuth)
+		{
+			// SDK predates WebAuth; nothing to do.
+			return;
+		}
+		if (!this.fable.OratorServiceServer)
+		{
+			this.log.warn('WebAuth install: OratorServiceServer not available on fable; skipping.');
+			return;
+		}
+		this._WebAuthHandle = libBeaconService.WebAuth.install(this.fable.OratorServiceServer,
+			{
+				UltravisorURL:     pBeaconConfig.ServerURL,
+				BeaconName:        pBeaconConfig.Name || 'retold-databeacon',
+				BeaconID:          () => this._BeaconService && this._BeaconService.getBeaconID
+					? this._BeaconService.getBeaconID() : '',
+				CookieName:        'SessionID',
+				RoutePrefix:       '/1.0/',
+				StatusPath:        '/status',
+				// Gate everything except /1.0/Authenticate, /CheckSession,
+				// /Deauthenticate, /status, and the static web bundle
+				// (paths under '/' that don't start with /1.0/, /api/, or
+				// /beacon/).  Leaving /beacon/ ungated keeps the existing
+				// /beacon/ultravisor/status route working pre-login so
+				// the page-title fetch in index.html doesn't 401 before
+				// the gate can redirect.
+				GatedPathPrefixes: ['/1.0/Records', '/1.0/Connections', '/1.0/Endpoints'],
+				Log:               this.fable.log
+			});
+		this.log.info('WebAuth: mounted /1.0/{Authenticate,Deauthenticate,CheckSession} + /status proxy');
 	}
 
 	/**

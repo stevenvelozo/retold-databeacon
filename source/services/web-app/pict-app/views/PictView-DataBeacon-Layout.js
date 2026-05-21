@@ -143,7 +143,11 @@ class PictViewDataBeaconLayout extends libPictView
 				+ '<div id="DataBeacon-View-Introspection"  class="view-panel" style="display:none;"></div>'
 				+ '<div id="DataBeacon-View-Endpoints"      class="view-panel" style="display:none;"></div>'
 				+ '<div id="DataBeacon-View-Records"        class="view-panel" style="display:none;"></div>'
-				+ '<div id="DataBeacon-View-SQL"            class="view-panel" style="display:none;"></div>';
+				+ '<div id="DataBeacon-View-SQL"            class="view-panel" style="display:none;"></div>'
+				// Login panel is special: outside the normal _NavItems
+				// roster (no sidebar/topbar entry).  Shown only when the
+				// auth gate forces the user there via setActiveView('Login').
+				+ '<div id="DataBeacon-View-Login"          class="view-panel" style="display:none;"></div>';
 		}
 	}
 
@@ -162,15 +166,28 @@ class PictViewDataBeaconLayout extends libPictView
 	{
 		this.pict.AppData.CurrentView = pViewName;
 
-		// Toggle panel visibility.
+		// Login is a special "outside the nav roster" view — the auth
+		// gate forces it on top of whatever the user was looking at.
+		// Hide every _NavItems panel, hide chrome that doesn't belong
+		// on a login screen, show the Login panel only.
+		let tmpIsLogin = (pViewName === 'Login');
+
+		// Toggle panel visibility for the regular nav items.
 		for (let i = 0; i < _NavItems.length; i++)
 		{
 			let tmpName = _NavItems[i].View;
 			let tmpPanelList = this.pict.ContentAssignment.getElement(`#DataBeacon-View-${tmpName}`);
 			if (tmpPanelList && tmpPanelList.length > 0)
 			{
-				tmpPanelList[0].style.display = (tmpName === pViewName) ? 'block' : 'none';
+				tmpPanelList[0].style.display = (!tmpIsLogin && tmpName === pViewName) ? 'block' : 'none';
 			}
+		}
+
+		// Toggle the Login panel separately.
+		let tmpLoginPanelList = this.pict.ContentAssignment.getElement('#DataBeacon-View-Login');
+		if (tmpLoginPanelList && tmpLoginPanelList.length > 0)
+		{
+			tmpLoginPanelList[0].style.display = tmpIsLogin ? 'block' : 'none';
 		}
 
 		// Re-render the sidebar so its active-state highlight follows the

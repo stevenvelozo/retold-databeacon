@@ -10,6 +10,8 @@ const libPictSectionModal = require('pict-section-modal');
 const libPictSectionTheme = require('pict-section-theme');
 const libPictSectionCode = require('pict-section-code');
 const libPictSectionConnectionForm = require('pict-section-connection-form');
+const libPictSectionLogin = require('pict-section-login');
+const libBeaconWebAuthClient = require('ultravisor-beacon/webinterface/Pict-Beacon-WebAuth-Client.js');
 const libPictRouter = require('pict-router');
 const libPictRouterConfig = require('./providers/PictRouter-DataBeacon-Configuration.json');
 const libDataBeaconBrand = require('./DataBeacon-Brand.js');
@@ -28,6 +30,7 @@ const libViewSettingsPanel = require('./views/PictView-DataBeacon-SettingsPanel.
 
 // Page / container views
 const libViewDashboard = require('./views/PictView-DataBeacon-Dashboard.js');
+const libViewLogin = require('./views/PictView-DataBeacon-Login.js');
 const libViewConnections = require('./views/PictView-DataBeacon-Connections.js');
 const libViewIntrospection = require('./views/PictView-DataBeacon-Introspection.js');
 const libViewEndpoints = require('./views/PictView-DataBeacon-Endpoints.js');
@@ -116,6 +119,26 @@ class DataBeaconApplication extends libPictApplication
 		this.pict.addView('RecordBrowser', libViewRecordBrowser.default_configuration, libViewRecordBrowser);
 		this.pict.addView('QueryPanel', libViewQueryPanel.default_configuration, libViewQueryPanel);
 		this.pict.addView('SavedQueriesList', libViewSavedQueriesList.default_configuration, libViewSavedQueriesList);
+
+		// Login flow — wrapper view + the beacon-SDK's client helper
+		// install pict-section-login and wire its hooks back into this
+		// application's navigation.  The helper writes
+		// `AppData.DataBeacon.Auth = { Mode, SupportsUserManagement,
+		// SessionChecked, Authenticated }` for any view to read.
+		this.pict.addView('Login', libViewLogin.default_configuration, libViewLogin);
+		this._WebAuthClient = libBeaconWebAuthClient.install(this.pict,
+			{
+				Section:              libPictSectionLogin,
+				AuthStateAddress:     'AppData.DataBeacon.Auth',
+				LoginRoute:           'Login',
+				HomeRoute:            'Dashboard',
+				StatusURL:            '/status',
+				LoginEndpoint:        '/1.0/Authenticate',
+				LogoutEndpoint:       '/1.0/Deauthenticate',
+				CheckSessionEndpoint: '/1.0/CheckSession',
+				OnAfterLogin:         () => this.renderTopBar(),
+				OnAfterLogout:        () => this.renderTopBar()
+			});
 
 		// SQL code editor (pict-section-code + CodeJar) — registered separately so the
 		// QueryPanel view can mount it into its editor slot each time it renders.
@@ -209,20 +232,79 @@ class DataBeaconApplication extends libPictApplication
 		// Render the shell.
 		this.pict.views.Layout.render();
 
-		// Load initial data.
-		let tmpProvider = this.pict.providers.DataBeaconProvider;
-		if (tmpProvider)
+		// Boot gate: fetch /status to discover auth mode before deciding
+		// the landing route.  In promiscuous mode (default for older
+		// databeacons or when no UV is connected) we go straight to the
+		// dashboard and load data.  In authenticated mode we force the
+		// user through Login first; pict-section-login's
+		// CheckSessionOnLoad will then validate any stored cookie and,
+		// if valid, the helper's onSessionChecked hook bounces back to
+		// /Home (i.e. Dashboard).
+		this._WebAuthClient.loadAuthStatus((pStatusErr) =>
 		{
-			tmpProvider.loadConnections();
-			tmpProvider.loadAvailableTypes();
-			tmpProvider.loadEndpoints();
-			tmpProvider.loadBeaconStatus();
-		}
+			// pStatusErr is non-fatal — defaults leave us in promiscuous
+			// mode and the UI still works (just without a backend-driven
+			// gate).  Logging via pict.log keeps it visible without
+			// blocking.
+			if (pStatusErr)
+			{
+				this.pict.log.warn('DataBeacon: /status fetch failed during boot: ' + pStatusErr.message);
+			}
 
-		// Land on the dashboard.
-		this.navigateTo('Dashboard');
+			let tmpAuthState = (this.pict.AppData.DataBeacon && this.pict.AppData.DataBeacon.Auth) || {};
+			if (tmpAuthState.Mode === 'authenticated')
+			{
+				// Force the user to the Login view; the section's
+				// CheckSessionOnLoad will silently bounce them back to
+				// the dashboard if their cookie is still good.
+				this.navigateTo('Login');
+				// Defer data loads until login completes — the
+				// OnAfterLogin hook re-renders the topbar but doesn't
+				// trigger data-loading; do that here once we know the
+				// post-login route.  Data load is idempotent so we'll
+				// re-fire on login too via an additional callback.
+				let tmpOriginalOnAfterLogin = this._WebAuthClient.getAuthState
+					? this._WebAuthClient.getAuthState()._OnAfterLogin
+					: null;
+				let fLoadData = () =>
+				{
+					let tmpProv = this.pict.providers.DataBeaconProvider;
+					if (tmpProv)
+					{
+						tmpProv.loadConnections();
+						tmpProv.loadAvailableTypes();
+						tmpProv.loadEndpoints();
+						tmpProv.loadBeaconStatus();
+					}
+				};
+				// Patch the login section's onLoginSuccess to also load
+				// data after a successful sign-in.
+				let tmpLogin = this.pict.views['Pict-Section-Login'];
+				if (tmpLogin)
+				{
+					let tmpPrev = tmpLogin.onLoginSuccess;
+					tmpLogin.onLoginSuccess = (pSess) =>
+					{
+						if (typeof tmpPrev === 'function') { tmpPrev(pSess); }
+						fLoadData();
+					};
+				}
+				return super.onAfterInitializeAsync(fCallback);
+			}
 
-		return super.onAfterInitializeAsync(fCallback);
+			// Promiscuous (or status unreachable) — load data + land on
+			// Dashboard the same as before.
+			let tmpProvider = this.pict.providers.DataBeaconProvider;
+			if (tmpProvider)
+			{
+				tmpProvider.loadConnections();
+				tmpProvider.loadAvailableTypes();
+				tmpProvider.loadEndpoints();
+				tmpProvider.loadBeaconStatus();
+			}
+			this.navigateTo('Dashboard');
+			return super.onAfterInitializeAsync(fCallback);
+		});
 	}
 
 	// ── Router action handlers ──────────────────────────────────────────────
