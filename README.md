@@ -55,9 +55,11 @@ $ npm install -g retold-databeacon
 
 ```sh
 # Initialize a database and start the server
+
+> **[&#9654; Read the Retold-Databeacon Documentation](https://stevenvelozo.github.io/retold-databeacon/)** &mdash; interactive docs with the full API reference.
+
 retold-databeacon init
 retold-databeacon serve
-
 # Or with options
 retold-databeacon serve --port 9000 --db /mnt/data/beacon.sqlite
 ```
