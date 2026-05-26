@@ -56,7 +56,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/stevenvelozo/retold-databeacon.git"
+		"url": "https://github.com/fable-retold/retold-databeacon.git"
 	},
 	"keywords": [
 		"data",
@@ -115,9 +115,9 @@
 	"author": "Steven Velozo <steven@velozo.com> (http://velozo.com/)",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/stevenvelozo/retold-databeacon/issues"
+		"url": "https://github.com/fable-retold/retold-databeacon/issues"
 	},
-	"homepage": "https://github.com/stevenvelozo/retold-databeacon",
+	"homepage": "https://github.com/fable-retold/retold-databeacon",
 	"devDependencies": {
 		"pict-docuserve": "^1.3.3",
 		"puppeteer": "^24.40.0",

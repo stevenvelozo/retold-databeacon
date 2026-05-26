@@ -8,4 +8,4 @@
 - Integrate with Ultravisor for distributed data orchestration
 
 [Get Started](README.md)
-[GitHub](https://github.com/stevenvelozo/retold-databeacon)
+[GitHub](https://github.com/fable-retold/retold-databeacon)

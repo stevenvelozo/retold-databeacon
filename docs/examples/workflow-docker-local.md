@@ -10,7 +10,7 @@ Build a retold-databeacon Docker image and run it locally for testing or as a pe
 ## Build the Image
 
 ```bash
-git clone https://github.com/stevenvelozo/retold-databeacon.git
+git clone https://github.com/fable-retold/retold-databeacon.git
 cd retold-databeacon
 
 # Build the Docker image

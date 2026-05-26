@@ -11,7 +11,7 @@ Check out the retold-databeacon repository and run it locally for development an
 ## Clone and Setup
 
 ```bash
-git clone https://github.com/stevenvelozo/retold-databeacon.git
+git clone https://github.com/fable-retold/retold-databeacon.git
 cd retold-databeacon
 
 # Install dependencies
