@@ -51,7 +51,8 @@ class DataBeaconBeaconProvider extends libFableServiceProviderBase
 	 *
 	 * @param {object} pBeaconConfig Beacon configuration:
 	 *   - ServerURL {string} Ultravisor server URL (required)
-	 *   - Name {string} Beacon name (default: 'retold-databeacon')
+	 *   - Name {string} Beacon name / mesh handle (default: 'retold-databeacon')
+	 *   - UserName {string} HTTP-auth identity for /1.0/Authenticate (default: '' → falls back to Name in the SDK)
 	 *   - Password {string} Auth password (default: '')
 	 *   - MaxConcurrent {number} Max concurrent work items (default: 3)
 	 *   - Tags {object} Beacon tags (default: {})
