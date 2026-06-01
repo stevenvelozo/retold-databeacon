@@ -135,12 +135,12 @@ When using the library API, configuration is passed as an options object to the 
 
 ## Related Packages
 
--- [fable](https://github.com/fable-retold/fable) -- Service dependency injection and configuration
--- [meadow](https://github.com/fable-retold/meadow) -- Data access layer and ORM
--- [meadow-endpoints](https://github.com/fable-retold/meadow-endpoints) -- Automatic REST endpoint generation from Meadow schemas
+-- [fable](https://fable-retold.github.io/fable/) -- Service dependency injection and configuration
+-- [meadow](https://fable-retold.github.io/meadow/) -- Data access layer and ORM
+-- [meadow-endpoints](https://fable-retold.github.io/meadow-endpoints/) -- Automatic REST endpoint generation from Meadow schemas
 -- [meadow-connection-manager](https://github.com/fable-retold/meadow-connection-manager) -- Multi-database connection management
--- [orator](https://github.com/fable-retold/orator) -- API server abstraction
--- [retold-facto](https://github.com/stevenvelozo/retold-facto) -- Data warehouse and knowledge graph storage
--- [ultravisor](https://github.com/stevenvelozo/ultravisor) -- Workflow orchestration engine
+-- [orator](https://fable-retold.github.io/orator/) -- API server abstraction
+-- [retold-facto](https://stevenvelozo.github.io/retold-facto/) -- Data warehouse and knowledge graph storage
+-- [ultravisor](https://stevenvelozo.github.io/ultravisor/) -- Workflow orchestration engine
 -- [ultravisor-beacon](https://github.com/stevenvelozo/ultravisor-beacon) -- Beacon registration for Ultravisor mesh
--- [pict](https://github.com/fable-retold/pict) -- MVC framework for web applications
+-- [pict](https://fable-retold.github.io/pict/) -- MVC framework for web applications
