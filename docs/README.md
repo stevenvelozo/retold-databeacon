@@ -138,9 +138,9 @@ When using the library API, configuration is passed as an options object to the 
 -- [fable](https://fable-retold.github.io/fable/) -- Service dependency injection and configuration
 -- [meadow](https://fable-retold.github.io/meadow/) -- Data access layer and ORM
 -- [meadow-endpoints](https://fable-retold.github.io/meadow-endpoints/) -- Automatic REST endpoint generation from Meadow schemas
--- [meadow-connection-manager](https://github.com/fable-retold/meadow-connection-manager) -- Multi-database connection management
+-- [meadow-connection-manager](https://fable-retold.github.io/meadow-connection-manager/) -- Multi-database connection management
 -- [orator](https://fable-retold.github.io/orator/) -- API server abstraction
 -- [retold-facto](https://stevenvelozo.github.io/retold-facto/) -- Data warehouse and knowledge graph storage
 -- [ultravisor](https://stevenvelozo.github.io/ultravisor/) -- Workflow orchestration engine
--- [ultravisor-beacon](https://github.com/stevenvelozo/ultravisor-beacon) -- Beacon registration for Ultravisor mesh
+-- [ultravisor-beacon](https://stevenvelozo.github.io/ultravisor-beacon/) -- Beacon registration for Ultravisor mesh
 -- [pict](https://fable-retold.github.io/pict/) -- MVC framework for web applications
