@@ -1,0 +1,36 @@
+graph TB
+	subgraph "Docker Container"
+		subgraph "retold-databeacon"
+			NODE["Node.js 20"]
+			APP["DataBeacon Service<br/>Port 8389"]
+			NODE --> APP
+		end
+		VOL["/app/data<br/>(volume mount)"]
+		APP --> VOL
+	end
+
+	subgraph "External Databases"
+		DB1["MySQL Server"]
+		DB2["PostgreSQL Server"]
+		DB3["MSSQL Server"]
+	end
+
+	subgraph "Ultravisor Mesh"
+		COORD["Ultravisor Coordinator"]
+		OTHER["Other Beacons"]
+		COORD --- OTHER
+	end
+
+	subgraph "Consumers"
+		UI["Web Browser<br/>(built-in UI)"]
+		API["REST API Clients"]
+		MESH["Mesh Work Items"]
+	end
+
+	APP -->|"TCP connections"| DB1
+	APP -->|"TCP connections"| DB2
+	APP -->|"TCP connections"| DB3
+	APP -->|"WebSocket"| COORD
+	UI -->|"HTTP :8389"| APP
+	API -->|"HTTP :8389"| APP
+	COORD -->|"Work items"| APP

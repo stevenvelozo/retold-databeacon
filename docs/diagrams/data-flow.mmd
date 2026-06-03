@@ -1,0 +1,36 @@
+sequenceDiagram
+	participant User as Client / Web UI
+	participant CB as ConnectionBridge
+	participant MCM as MeadowConnectionManager
+	participant DB as External Database
+	participant SI as SchemaIntrospector
+	participant IT as IntrospectedTable (SQLite)
+	participant DEM as DynamicEndpointManager
+	participant ORA as Orator (REST)
+
+	User->>CB: POST /beacon/connection<br/>(create connection config)
+	CB->>IT: Persist BeaconConnection record
+
+	User->>CB: POST /beacon/connection/:id/connect
+	CB->>MCM: connect(name, config)
+	MCM->>DB: Establish connection pool
+	MCM-->>CB: Connection live
+
+	User->>SI: POST /beacon/connection/:id/introspect
+	SI->>DB: LIST TABLES (dialect SQL)
+	DB-->>SI: Table list
+	SI->>DB: DESCRIBE each table (dialect SQL)
+	DB-->>SI: Column definitions
+	SI->>IT: Persist IntrospectedTable records
+
+	User->>DEM: POST /beacon/endpoint/:id/:table/enable
+	DEM->>IT: Load column definitions
+	DEM->>DEM: Build Meadow schema from columns
+	DEM->>ORA: Connect /1.0/{TableName} routes
+
+	User->>ORA: GET /1.0/{TableName}s/0/50
+	ORA->>DEM: Meadow DAL read
+	DEM->>DB: SELECT via connection pool
+	DB-->>DEM: Result rows
+	DEM-->>ORA: JSON response
+	ORA-->>User: Records

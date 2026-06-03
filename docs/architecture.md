@@ -8,57 +8,8 @@ DataBeacon uses an internal SQLite database for its own persistence (connection 
 
 ## Component Architecture
 
-```mermaid
-graph TB
-	subgraph "retold-databeacon Process"
-		CLI["bin/retold-databeacon.js<br/>(CLI Entry Point)"]
-		CORE["Retold-DataBeacon.js<br/>(Core Service)"]
-
-		CLI --> CORE
-
-		subgraph "Services"
-			CB["ConnectionBridge<br/>Connection lifecycle"]
-			SI["SchemaIntrospector<br/>Dialect-specific SQL"]
-			DEM["DynamicEndpointManager<br/>Meadow schema + endpoints"]
-			BP["BeaconProvider<br/>Ultravisor integration"]
-		end
-
-		CORE --> CB
-		CORE --> SI
-		CORE --> DEM
-		CORE --> BP
-
-		subgraph "Retold Infrastructure"
-			ORA["Orator<br/>(HTTP Server / Restify)"]
-			MDW["Meadow<br/>(DAL / ORM)"]
-			MCM["MeadowConnectionManager<br/>(Connection pooling)"]
-			SQLITE["SQLite<br/>(Internal storage)"]
-		end
-
-		CB --> MCM
-		CB --> MDW
-		SI --> MCM
-		DEM --> MDW
-		CORE --> ORA
-		CORE --> SQLITE
-	end
-
-	subgraph "External Systems"
-		MYSQL["MySQL"]
-		PG["PostgreSQL"]
-		MSSQL["MSSQL"]
-		ESQLITE["SQLite (external)"]
-		UV["Ultravisor Coordinator"]
-		CLIENTS["REST Clients"]
-	end
-
-	MCM --> MYSQL
-	MCM --> PG
-	MCM --> MSSQL
-	MCM --> ESQLITE
-	BP --> UV
-	CLIENTS --> ORA
-```
+<!-- bespoke diagram: edit diagrams/component-architecture.mmd or .hints.json, then: npx pict-renderer-graph build modules/apps/retold-databeacon/docs -->
+![Component Architecture](diagrams/component-architecture.svg)
 
 ## Service Architecture
 
@@ -130,85 +81,13 @@ Key routes:
 
 ## Data Flow
 
-```mermaid
-sequenceDiagram
-	participant User as Client / Web UI
-	participant CB as ConnectionBridge
-	participant MCM as MeadowConnectionManager
-	participant DB as External Database
-	participant SI as SchemaIntrospector
-	participant IT as IntrospectedTable (SQLite)
-	participant DEM as DynamicEndpointManager
-	participant ORA as Orator (REST)
-
-	User->>CB: POST /beacon/connection<br/>(create connection config)
-	CB->>IT: Persist BeaconConnection record
-
-	User->>CB: POST /beacon/connection/:id/connect
-	CB->>MCM: connect(name, config)
-	MCM->>DB: Establish connection pool
-	MCM-->>CB: Connection live
-
-	User->>SI: POST /beacon/connection/:id/introspect
-	SI->>DB: LIST TABLES (dialect SQL)
-	DB-->>SI: Table list
-	SI->>DB: DESCRIBE each table (dialect SQL)
-	DB-->>SI: Column definitions
-	SI->>IT: Persist IntrospectedTable records
-
-	User->>DEM: POST /beacon/endpoint/:id/:table/enable
-	DEM->>IT: Load column definitions
-	DEM->>DEM: Build Meadow schema from columns
-	DEM->>ORA: Connect /1.0/{TableName} routes
-
-	User->>ORA: GET /1.0/{TableName}s/0/50
-	ORA->>DEM: Meadow DAL read
-	DEM->>DB: SELECT via connection pool
-	DB-->>DEM: Result rows
-	DEM-->>ORA: JSON response
-	ORA-->>User: Records
-```
+<!-- bespoke diagram: edit diagrams/data-flow.mmd or .hints.json, then: npx pict-renderer-graph build modules/apps/retold-databeacon/docs -->
+![Data Flow](diagrams/data-flow.svg)
 
 ## Deployment Architecture
 
-```mermaid
-graph TB
-	subgraph "Docker Container"
-		subgraph "retold-databeacon"
-			NODE["Node.js 20"]
-			APP["DataBeacon Service<br/>Port 8389"]
-			NODE --> APP
-		end
-		VOL["/app/data<br/>(volume mount)"]
-		APP --> VOL
-	end
-
-	subgraph "External Databases"
-		DB1["MySQL Server"]
-		DB2["PostgreSQL Server"]
-		DB3["MSSQL Server"]
-	end
-
-	subgraph "Ultravisor Mesh"
-		COORD["Ultravisor Coordinator"]
-		OTHER["Other Beacons"]
-		COORD --- OTHER
-	end
-
-	subgraph "Consumers"
-		UI["Web Browser<br/>(built-in UI)"]
-		API["REST API Clients"]
-		MESH["Mesh Work Items"]
-	end
-
-	APP -->|"TCP connections"| DB1
-	APP -->|"TCP connections"| DB2
-	APP -->|"TCP connections"| DB3
-	APP -->|"WebSocket"| COORD
-	UI -->|"HTTP :8389"| APP
-	API -->|"HTTP :8389"| APP
-	COORD -->|"Work items"| APP
-```
+<!-- bespoke diagram: edit diagrams/deployment-architecture.mmd or .hints.json, then: npx pict-renderer-graph build modules/apps/retold-databeacon/docs -->
+![Deployment Architecture](diagrams/deployment-architecture.svg)
 
 The Docker image uses a multi-stage build. The builder stage runs `npx quack build` to produce the browser bundle (`retold-databeacon.js`), then the runtime stage copies only production dependencies and the built artifacts. The `/app/data` volume mount persists the internal SQLite database across container restarts.
 

@@ -1,0 +1,49 @@
+graph TB
+	subgraph "retold-databeacon Process"
+		CLI["bin/retold-databeacon.js<br/>(CLI Entry Point)"]
+		CORE["Retold-DataBeacon.js<br/>(Core Service)"]
+
+		CLI --> CORE
+
+		subgraph "Services"
+			CB["ConnectionBridge<br/>Connection lifecycle"]
+			SI["SchemaIntrospector<br/>Dialect-specific SQL"]
+			DEM["DynamicEndpointManager<br/>Meadow schema + endpoints"]
+			BP["BeaconProvider<br/>Ultravisor integration"]
+		end
+
+		CORE --> CB
+		CORE --> SI
+		CORE --> DEM
+		CORE --> BP
+
+		subgraph "Retold Infrastructure"
+			ORA["Orator<br/>(HTTP Server / Restify)"]
+			MDW["Meadow<br/>(DAL / ORM)"]
+			MCM["MeadowConnectionManager<br/>(Connection pooling)"]
+			SQLITE["SQLite<br/>(Internal storage)"]
+		end
+
+		CB --> MCM
+		CB --> MDW
+		SI --> MCM
+		DEM --> MDW
+		CORE --> ORA
+		CORE --> SQLITE
+	end
+
+	subgraph "External Systems"
+		MYSQL["MySQL"]
+		PG["PostgreSQL"]
+		MSSQL["MSSQL"]
+		ESQLITE["SQLite (external)"]
+		UV["Ultravisor Coordinator"]
+		CLIENTS["REST Clients"]
+	end
+
+	MCM --> MYSQL
+	MCM --> PG
+	MCM --> MSSQL
+	MCM --> ESQLITE
+	BP --> UV
+	CLIENTS --> ORA

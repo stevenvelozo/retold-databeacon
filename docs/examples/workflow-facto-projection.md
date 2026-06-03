@@ -6,24 +6,8 @@ This is the most advanced workflow, combining all three services in the Ultravis
 
 ## Architecture
 
-```mermaid
-graph LR
-    subgraph Remote["Remote Network"]
-        PG["PostgreSQL DB"]
-        MY["MySQL DB"]
-        DB["DataBeacon :8389"]
-        DB --- PG
-        DB --- MY
-    end
-    subgraph Local["Your Network"]
-        UV["Ultravisor Coordinator"]
-        FA["Retold Facto :8420"]
-        TM["Target MySQL<br/>(projections)"]
-    end
-    DB -- "WAN / VPN" --> UV
-    UV --- FA
-    FA --- TM
-```
+<!-- bespoke diagram: edit diagrams/architecture.mmd or .hints.json, then: npx pict-renderer-graph build modules/apps/retold-databeacon/docs/examples -->
+![Architecture](diagrams/architecture.svg)
 
 ## Prerequisites
 
